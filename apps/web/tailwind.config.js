@@ -16,8 +16,8 @@ export default {
           700: '#274aa3',
           900: '#1b3273',
         },
-        // Cool light canvas + surfaces (mesh gradient layered on top).
-        canvas: '#f4f6fb',
+        // Clean light body; the blue sidebar carries the design (option D).
+        canvas: '#f7f9fc',
         paper: '#ffffff',
       },
       borderRadius: {
@@ -26,8 +26,9 @@ export default {
         '3xl': '1.5rem',
       },
       boxShadow: {
-        soft: '0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06)',
-        lift: '0 6px 20px -6px rgba(16,24,40,0.12), 0 2px 6px rgba(16,24,40,0.05)',
+        // Brand-tinted so white cards feel lifted off the light body.
+        soft: '0 1px 2px rgba(27,50,115,0.05), 0 6px 16px -8px rgba(27,50,115,0.12)',
+        lift: '0 12px 28px -10px rgba(27,50,115,0.22), 0 2px 6px rgba(27,50,115,0.07)',
       },
       keyframes: {
         'pop-in': {

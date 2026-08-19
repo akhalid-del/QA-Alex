@@ -37,14 +37,14 @@ export function Layout() {
 
   return (
     <div className="flex h-full bg-canvas">
-      <aside className="flex w-64 flex-col border-r border-slate-200/70 bg-paper">
-        <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white shadow-sm">
+      <aside className="flex w-64 flex-col bg-gradient-to-b from-brand-700 to-brand-900 text-white">
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-sm font-bold text-white ring-1 ring-white/20">
             QA
           </div>
           <div>
-            <div className="text-sm font-semibold leading-tight text-slate-900">RingCX QA</div>
-            <div className="text-[11px] leading-tight text-slate-400">Quality Monitoring</div>
+            <div className="text-sm font-semibold leading-tight text-white">RingCX QA</div>
+            <div className="text-[11px] leading-tight text-white/55">Quality Monitoring</div>
           </div>
         </div>
 
@@ -56,15 +56,14 @@ export function Layout() {
               end={i.to === '/'}
               className={({ isActive }) =>
                 clsx(
-                  'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
-                  isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800',
+                  'group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition',
+                  isActive ? 'bg-white text-brand-800 shadow-soft' : 'text-white/75 hover:bg-white/10 hover:text-white',
                 )
               }
             >
               {({ isActive }) => (
                 <>
-                  {isActive && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-600" />}
-                  <span className={clsx(isActive ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-600')}>{i.icon}</span>
+                  <span className={clsx(isActive ? 'text-brand-600' : 'text-white/60 group-hover:text-white')}>{i.icon}</span>
                   {i.label}
                 </>
               )}
@@ -72,14 +71,14 @@ export function Layout() {
           ))}
         </nav>
 
-        <div className="border-t border-slate-100 p-3">
-          <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
+        <div className="border-t border-white/10 p-3">
+          <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white ring-1 ring-white/20">
               {initials(user?.name)}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium text-slate-800">{user?.name}</div>
-              <div className="text-[11px] text-slate-400">{user?.role.replace('_', ' ')}</div>
+              <div className="truncate text-sm font-medium text-white">{user?.name}</div>
+              <div className="text-[11px] text-white/55">{user?.role.replace('_', ' ')}</div>
             </div>
           </div>
           <button
@@ -87,7 +86,7 @@ export function Layout() {
               logout();
               navigate('/login');
             }}
-            className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-rose-600"
+            className="mt-1 w-full rounded-xl px-2 py-1.5 text-left text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
           >
             Sign out
           </button>
