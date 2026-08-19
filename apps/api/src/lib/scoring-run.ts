@@ -30,6 +30,7 @@ export async function runScoringForInteraction(interactionId: string): Promise<{
       startingScore: scorecard.startingScore,
       passThreshold: scorecard.passThreshold,
       referenceScript: scorecard.referenceScript,
+      dispositionRules: scorecard.dispositionRules,
       criteria: scorecard.criteria.map((c) => ({
         code: c.code,
         title: c.title,
@@ -52,6 +53,7 @@ export async function runScoringForInteraction(interactionId: string): Promise<{
       transcriptText,
       agentName: interaction.agent?.name,
       queue: interaction.queue ?? undefined,
+      agentDisposition: interaction.agentDisposition ?? undefined,
     });
 
     const codeToId = new Map(scorecard.criteria.map((c) => [c.code, c.id]));

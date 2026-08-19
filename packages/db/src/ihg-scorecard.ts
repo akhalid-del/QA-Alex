@@ -26,8 +26,22 @@ export interface ScorecardDef {
   startingScore: number;
   passThreshold: number;
   referenceScript: string;
+  dispositionRules: string;
   criteria: CriterionDef[];
 }
+
+/** Rulebook the AI uses to derive the CORRECT disposition from the transcript,
+ *  then compare it to the disposition the agent actually recorded. */
+export const IHG_DISPOSITION_RULES = `Determine the correct disposition from the transcript, then compare it to the disposition the agent recorded.
+
+- Successful Transfer — the member stayed on the line, consented to be transferred, AND was connected to a LIVE Holiday Inn Club Vacations agent to hear the offer. Only this counts as successful.
+- Failed Transfer — the member could not/would not continue to HICV, OR the call was abandoned / dropped before a live HICV agent picked up (an abandoned or not-actually-transferred call is a Failed Transfer, never Successful).
+- Attempt — "call me back later", a system disconnect, speaking with someone who is NOT the main account holder (even on a shared account), or "not interested" when NOT speaking with the account holder. A call that went to VOICEMAIL is an Attempt (never Successful Transfer).
+- Incomplete Survey — the member hung up in the middle of the survey without saying anything (from the disclosure line up to the last permission at closing).
+- Wrong Number — the member says it's the wrong number, or that they no longer have that number, or similar, after you ask for the member.
+- DNC (Do Not Call) — the member requests to be added to the do-not-call list.
+
+If the agent's recorded disposition does not match the correct one, fail the relevant "Wrong disposition" criteria and state both the recorded and the correct disposition with the transcript evidence.`;
 
 /** The approved word-for-word script agents must follow, incl. responses,
  *  state regulations, questions, closure, no-statement, and WV disclaimer. */
@@ -90,6 +104,7 @@ export const IHG_HICV_SCORECARD: ScorecardDef = {
   startingScore: 100,
   passThreshold: 0.9,
   referenceScript: IHG_SCRIPT,
+  dispositionRules: IHG_DISPOSITION_RULES,
   criteria: [
     // ══ NON-FATAL ═════════════════════════════════════════════════════════
     // ── Didn't stick to the script ──────────────────────────────────────────

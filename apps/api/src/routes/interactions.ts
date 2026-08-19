@@ -88,6 +88,7 @@ async function createManualInteraction(params: {
   agentId?: string;
   queue?: string;
   direction: 'INBOUND' | 'OUTBOUND';
+  agentDisposition?: string;
   startedAt?: string;
   durationSec?: number;
 }) {
@@ -98,6 +99,7 @@ async function createManualInteraction(params: {
       agentId: params.agentId ?? null,
       queue: params.queue ?? null,
       direction: params.direction,
+      agentDisposition: params.agentDisposition ?? null,
       startedAt: params.startedAt ? new Date(params.startedAt) : new Date(),
       durationSec: params.durationSec ?? 0,
       recordingKey: params.recordingKey,

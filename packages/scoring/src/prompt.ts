@@ -25,9 +25,20 @@ export function buildSystemPrompt(input: ScoringInput): string {
     '',
     '=== APPROVED SCRIPT ===',
     scorecard.referenceScript || '(no script provided)',
-    '',
-    '=== RUBRIC (grade every item; return exactly one result per code) ===',
   );
+
+  if (scorecard.dispositionRules) {
+    lines.push(
+      '',
+      '=== DISPOSITION RULES ===',
+      scorecard.dispositionRules,
+      input.agentDisposition
+        ? `The agent recorded this disposition: "${input.agentDisposition}". Compare it against the correct disposition you derive from the transcript, and grade the "Wrong disposition" criteria accordingly.`
+        : 'No agent-recorded disposition was provided, so the "Wrong disposition" criteria cannot be verified — mark them NA.',
+    );
+  }
+
+  lines.push('', '=== RUBRIC (grade every item; return exactly one result per code) ===');
   for (const c of scorecard.criteria) {
     lines.push(`- ${c.code}${c.autoFail ? ' [FATAL]' : ''} — ${c.title} :: ${c.guidance}`);
   }

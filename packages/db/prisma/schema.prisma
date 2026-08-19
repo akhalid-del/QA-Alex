@@ -126,6 +126,7 @@ model Interaction {
   recordingKey String? // object-storage key OR an external URL (manual entries)
   sampled      Boolean           @default(false) // selected for QA scoring
   manual       Boolean           @default(false) // added via a pasted link, not RingCX
+  agentDisposition String?       // the disposition the AGENT recorded (from RingCX or entered manually)
   status       InteractionStatus @default(INGESTED)
   statusError  String?
   createdAt    DateTime          @default(now())
@@ -162,6 +163,7 @@ model Scorecard {
   startingScore Int         @default(100) // deduction mode: points before mistakes
   passThreshold Float       @default(0.9) // min fraction of startingScore to PASS
   referenceScript String    @default("") // approved word-for-word script the AI grades adherence against
+  dispositionRules String   @default("") // rulebook: when each disposition is correct
   criteria      Criterion[]
   evaluations   Evaluation[]
   createdAt     DateTime    @default(now())

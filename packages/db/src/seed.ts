@@ -135,6 +135,7 @@ async function main() {
       startingScore: IHG_HICV_SCORECARD.startingScore,
       passThreshold: IHG_HICV_SCORECARD.passThreshold,
       referenceScript: IHG_HICV_SCORECARD.referenceScript,
+      dispositionRules: IHG_HICV_SCORECARD.dispositionRules,
       createdBy: admin.id,
       criteria: {
         create: IHG_HICV_SCORECARD.criteria.map((c, i) => ({
@@ -162,6 +163,8 @@ async function main() {
     const direction = 'OUTBOUND'; // survey calls are outbound
     const bias: 'good' | 'bad' = Math.random() < 0.8 ? 'good' : 'bad';
     const reviewed = sampled && Math.random() < 0.4; // ~40% already reviewed
+    // Good calls = correct "Successful Transfer"; bad calls sometimes record the wrong disposition.
+    const agentDisposition = bias === 'good' ? 'Successful Transfer' : pick(['Successful Transfer', 'Attempt', 'Failed Transfer']);
 
     const interaction = await prisma.interaction.create({
       data: {
@@ -175,6 +178,7 @@ async function main() {
         startedAt,
         durationSec: 120 + Math.floor(Math.random() * 480),
         sampled,
+        agentDisposition,
         status: sampled ? (reviewed ? 'REVIEWED' : 'SCORED') : 'INGESTED',
         recordingKey: `demo/rec-${1000 + i}.wav`,
       },

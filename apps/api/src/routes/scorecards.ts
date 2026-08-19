@@ -61,6 +61,7 @@ scorecardsRouter.post(
           startingScore: input.startingScore,
           passThreshold: input.passThreshold,
           referenceScript: input.referenceScript,
+          dispositionRules: input.dispositionRules,
           version,
           active: true,
           createdBy: req.user!.id,

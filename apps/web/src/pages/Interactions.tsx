@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { DISPOSITIONS } from '@qa/shared/types';
 import { api, qs, ApiError } from '../api/client';
 import { uploadRecording } from '../api/storage';
 import { useAuth } from '../auth/AuthContext';
@@ -241,6 +242,7 @@ function AddCallModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
   const [agentId, setAgentId] = useState('');
   const [queue, setQueue] = useState('');
   const [direction, setDirection] = useState<'OUTBOUND' | 'INBOUND'>('OUTBOUND');
+  const [agentDisposition, setAgentDisposition] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
@@ -255,6 +257,7 @@ function AddCallModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
         agentId: agentId || undefined,
         queue: queue || undefined,
         direction,
+        agentDisposition: agentDisposition || undefined,
       });
     },
     onSuccess: (created) => {
@@ -328,6 +331,16 @@ function AddCallModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
             { value: 'OUTBOUND', label: 'Outbound' },
             { value: 'INBOUND', label: 'Inbound' },
           ]}
+        />
+      </Field>
+      <Field
+        label="Disposition the agent recorded (optional)"
+        hint="What the agent selected in RingCX. Needed to check the 'Wrong disposition' rules; leave blank and those are skipped."
+      >
+        <SelectInput
+          value={agentDisposition}
+          onChange={setAgentDisposition}
+          options={[{ value: '', label: '— not provided —' }, ...DISPOSITIONS.map((d) => ({ value: d, label: d }))]}
         />
       </Field>
       {error && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}

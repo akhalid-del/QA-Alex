@@ -21,6 +21,17 @@ export type InteractionStatus = (typeof INTERACTION_STATUSES)[number];
 export const CALL_DIRECTIONS = ['INBOUND', 'OUTBOUND'] as const;
 export type CallDirection = (typeof CALL_DIRECTIONS)[number];
 
+/** The dispositions an agent can record on a call (from the IHG/HICV rulebook). */
+export const DISPOSITIONS = [
+  'Successful Transfer',
+  'Failed Transfer',
+  'Attempt',
+  'Incomplete Survey',
+  'Wrong Number',
+  'DNC',
+] as const;
+export type Disposition = (typeof DISPOSITIONS)[number];
+
 export const VERDICTS = ['PASS', 'FAIL'] as const;
 export type Verdict = (typeof VERDICTS)[number];
 

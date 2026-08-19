@@ -7,6 +7,7 @@ export const ManualInteractionInput = z.object({
   agentId: z.string().optional(),
   queue: z.string().max(100).optional(),
   direction: z.enum(CALL_DIRECTIONS).default('OUTBOUND'),
+  agentDisposition: z.string().max(100).optional(),
   startedAt: z.string().optional(),
   durationSec: z.number().int().min(0).optional(),
 });
@@ -40,6 +41,7 @@ export const ScorecardInput = z.object({
   startingScore: z.number().int().min(1).max(1000).default(100),
   passThreshold: z.number().min(0).max(1).default(0.9),
   referenceScript: z.string().max(20000).default(''),
+  dispositionRules: z.string().max(8000).default(''),
   criteria: z.array(CriterionInputDto).min(1),
 });
 export type ScorecardInput = z.infer<typeof ScorecardInput>;

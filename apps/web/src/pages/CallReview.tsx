@@ -64,6 +64,7 @@ interface Detail {
   status: string;
   statusError: string | null;
   manual: boolean;
+  agentDisposition: string | null;
   recordingUrl: string | null;
   transcript: { utterances: Utterance[]; fullText: string; redactionApplied: boolean } | null;
   evaluation: Evaluation | null;
@@ -266,7 +267,7 @@ export function CallReview() {
       {burst && <SuccessBurst message="Review saved" onDone={() => setBurst(false)} />}
       <PageHeader
         title={`Call — ${data.agent?.name ?? 'Unknown agent'}`}
-        subtitle={`${fmtDate(data.startedAt)} · ${data.queue ?? 'No queue'} · ${data.direction} · ${fmtDuration(data.durationSec)}`}
+        subtitle={`${fmtDate(data.startedAt)} · ${data.queue ?? 'No queue'} · ${data.direction} · ${fmtDuration(data.durationSec)}${data.agentDisposition ? ` · Disposition: ${data.agentDisposition}` : ''}`}
         actions={
           <div className="flex items-center gap-3">
             {editable && evaluation && (

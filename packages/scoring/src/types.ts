@@ -16,6 +16,7 @@ export interface ScoringScorecard {
   startingScore: number;
   passThreshold: number;
   referenceScript: string;
+  dispositionRules?: string;
   criteria: ScoringCriterion[];
 }
 
@@ -25,6 +26,8 @@ export interface ScoringInput {
   transcriptText: string;
   agentName?: string;
   queue?: string;
+  /** The disposition the AGENT recorded on the call (from RingCX or entered manually). */
+  agentDisposition?: string;
 }
 
 export interface ScoredCriterion {
