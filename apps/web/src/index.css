@@ -14,11 +14,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Subtle warm depth on the app canvas */
+/* Soft gradient-mesh canvas: faint aurora blobs blurred into a clean base.
+   Layered large radial gradients read as out-of-focus color, no filter needed.
+   Fixed attachment keeps the mesh calm while content scrolls. */
 .app-canvas {
-  background:
-    radial-gradient(1200px 600px at 100% -10%, rgba(59, 111, 224, 0.05), transparent 60%),
-    theme('colors.canvas');
+  background-color: #f4f6fb;
+  background-image:
+    radial-gradient(38rem 38rem at 8% -6%, rgba(59, 111, 224, 0.16), transparent 60%),
+    radial-gradient(34rem 34rem at 98% 4%, rgba(139, 92, 246, 0.13), transparent 62%),
+    radial-gradient(40rem 40rem at 60% 108%, rgba(56, 189, 248, 0.12), transparent 60%),
+    radial-gradient(30rem 30rem at 30% 60%, rgba(59, 111, 224, 0.06), transparent 65%);
+  background-attachment: fixed;
 }
 
 /* Confetti bits for the success state */

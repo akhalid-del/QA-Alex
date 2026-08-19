@@ -16,8 +16,8 @@ export default {
           700: '#274aa3',
           900: '#1b3273',
         },
-        // Warm neutral canvas + surfaces (the "premium" softness).
-        canvas: '#f6f5f2',
+        // Cool light canvas + surfaces (mesh gradient layered on top).
+        canvas: '#f4f6fb',
         paper: '#ffffff',
       },
       borderRadius: {
