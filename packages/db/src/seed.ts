@@ -66,6 +66,23 @@ function makeTranscript(agentName: string, verdictBias: 'good' | 'bad') {
 async function main() {
   console.log('Seeding database...');
 
+  // SAFETY GUARD — this seed is DESTRUCTIVE: it wipes every table below to
+  // reset demo data. Once the app holds real, manually-added calls, a re-seed
+  // would silently destroy them (this exact bug already lost a real recording
+  // once). Refuse to run whenever the database already contains manual/real
+  // interactions, unless the operator explicitly forces it with SEED_FORCE=1.
+  const realCalls = await prisma.interaction.count({ where: { manual: true } });
+  if (realCalls > 0 && process.env.SEED_FORCE !== '1') {
+    console.error(
+      `\n✋ Refusing to seed: the database contains ${realCalls} manually-added (real) call(s) ` +
+        `that this destructive seed would delete.\n` +
+        `   Recordings in Storage are untouched, but the call rows, transcripts and scores would be lost.\n` +
+        `   To wipe EVERYTHING and reset demo data anyway, re-run with:  SEED_FORCE=1\n`,
+    );
+    await prisma.$disconnect();
+    process.exit(1);
+  }
+
   // Wipe in FK-safe order.
   await prisma.auditLog.deleteMany();
   await prisma.dispute.deleteMany();
