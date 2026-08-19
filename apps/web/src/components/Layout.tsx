@@ -36,8 +36,8 @@ export function Layout() {
   const items = NAV.filter((i) => !i.permission || can(i.permission));
 
   return (
-    <div className="flex h-full bg-slate-50">
-      <aside className="flex w-64 flex-col border-r border-slate-200 bg-white">
+    <div className="flex h-full bg-canvas">
+      <aside className="flex w-64 flex-col border-r border-slate-200/70 bg-paper">
         <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white shadow-sm">
             QA
@@ -94,8 +94,8 @@ export function Layout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl px-8 py-8">
+      <main className="app-canvas flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-6xl px-8 py-9">
           <Outlet />
         </div>
       </main>

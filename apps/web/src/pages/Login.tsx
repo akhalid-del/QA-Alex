@@ -37,10 +37,13 @@ export function Login() {
   }
 
   return (
-    <div className="flex h-full items-center justify-center bg-slate-100 p-6">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div className="app-canvas flex h-full items-center justify-center p-6">
+      <div className="w-full max-w-sm animate-fade-up rounded-3xl border border-slate-200/70 bg-paper p-8 shadow-lift">
         <div className="mb-6 text-center">
-          <div className="text-xl font-semibold text-brand-700">RingCX QA</div>
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white shadow-soft">
+            QA
+          </div>
+          <div className="text-lg font-bold tracking-tight text-slate-900">RingCX QA</div>
           <div className="text-sm text-slate-400">Call Center Quality Monitoring</div>
         </div>
         <form onSubmit={submit} className="space-y-4">

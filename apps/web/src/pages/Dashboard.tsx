@@ -11,8 +11,25 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import type { ReactNode } from 'react';
 import { api, qs } from '../api/client';
-import { Card, EmptyState, PageHeader, Skeleton, StatCard, healthColor, pct } from '../components/ui';
+import { Card, EmptyState, ErrorState, PageHeader, Skeleton, StatCard, healthColor, pct } from '../components/ui';
+
+const ic = (path: ReactNode) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+    {path}
+  </svg>
+);
+const ICON = {
+  rate: ic(<><path d="M20 6L9 17l-5-5" /></>),
+  calls: ic(<path d="M22 16.92v3a2 2 0 01-2.18 2 19.8 19.8 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.8 19.8 0 012.09 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0122 16.92z" />),
+  clock: ic(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
+  chat: ic(<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />),
+  alert: ic(<><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /><path d="M12 9v4M12 17h.01" /></>),
+  minus: ic(<><circle cx="12" cy="12" r="9" /><path d="M8 12h8" /></>),
+  check: ic(<><circle cx="12" cy="12" r="9" /><path d="M8.5 12.5l2.5 2.5 4.5-5" /></>),
+  ban: ic(<><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>),
+};
 
 interface Summary {
   kpis: {
@@ -49,7 +66,7 @@ export function Dashboard() {
   const agents = useQuery({ queryKey: ['agents'], queryFn: () => api.get<Agent[]>('/agents') });
   const teams = useQuery({ queryKey: ['teams'], queryFn: () => api.get<Team[]>('/agents/teams') });
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard', from, to, teamId, agentId],
     queryFn: () =>
       api.get<Summary>(
@@ -110,7 +127,9 @@ export function Dashboard() {
           ))}
         </div>
       ) : error || !data ? (
-        <div className="text-rose-600">Failed to load dashboard.</div>
+        <Card>
+          <ErrorState title="Couldn’t load the dashboard" hint="The API may be waking up — give it a moment." onRetry={() => refetch()} />
+        </Card>
       ) : (
         <DashboardBody data={data} />
       )}
@@ -123,18 +142,18 @@ function DashboardBody({ data }: { data: Summary }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Pass rate" value={pct(kpis.passRate)} accent={healthColor(kpis.passRate)} />
-        <StatCard label="Calls scored" value={kpis.totalScored} />
-        <StatCard label="Pending review" value={kpis.pendingReview} accent={kpis.pendingReview ? 'text-amber-600' : 'text-slate-900'} />
-        <StatCard label="Open disputes" value={kpis.openDisputes} accent={kpis.openDisputes ? 'text-rose-600' : 'text-slate-900'} />
+        <StatCard label="Pass rate" value={pct(kpis.passRate)} accent={healthColor(kpis.passRate)} icon={ICON.rate} tint={kpis.passRate >= 0.9 ? 'emerald' : kpis.passRate >= 0.7 ? 'amber' : 'rose'} />
+        <StatCard label="Calls scored" value={kpis.totalScored} icon={ICON.calls} tint="brand" />
+        <StatCard label="Pending review" value={kpis.pendingReview} accent={kpis.pendingReview ? 'text-amber-600' : 'text-slate-900'} icon={ICON.clock} tint="amber" />
+        <StatCard label="Open disputes" value={kpis.openDisputes} accent={kpis.openDisputes ? 'text-rose-600' : 'text-slate-900'} icon={ICON.chat} tint={kpis.openDisputes ? 'rose' : 'slate'} />
       </div>
 
       {/* Fatal vs non-fatal */}
       <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Fatal failures" value={kpis.fatalFails} accent="text-rose-600" />
-        <StatCard label="Non-fatal failures" value={kpis.nonFatalFails} accent="text-amber-600" />
-        <StatCard label="Reviewed" value={kpis.reviewed} accent="text-emerald-600" />
-        <StatCard label="Auto-failed calls" value={kpis.autoFails} accent="text-rose-600" />
+        <StatCard label="Fatal failures" value={kpis.fatalFails} accent="text-rose-600" icon={ICON.alert} tint="rose" />
+        <StatCard label="Non-fatal failures" value={kpis.nonFatalFails} accent="text-amber-600" icon={ICON.minus} tint="amber" />
+        <StatCard label="Reviewed" value={kpis.reviewed} accent="text-emerald-600" icon={ICON.check} tint="emerald" />
+        <StatCard label="Auto-failed calls" value={kpis.autoFails} accent="text-rose-600" icon={ICON.ban} tint="rose" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">

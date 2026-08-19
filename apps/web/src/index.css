@@ -9,5 +9,23 @@ body,
 }
 
 body {
-  @apply bg-slate-50 text-slate-800 antialiased;
+  @apply bg-canvas text-slate-800 antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle warm depth on the app canvas */
+.app-canvas {
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(59, 111, 224, 0.05), transparent 60%),
+    theme('colors.canvas');
+}
+
+/* Confetti bits for the success state */
+.confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  animation: confetti 0.9s ease-out forwards;
 }

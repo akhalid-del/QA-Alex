@@ -6,7 +6,7 @@ import { computeVerdict } from '@qa/shared/scorecard';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useToast } from '../components/Toast';
-import { Button, Card, PageHeader, ScorePill, Skeleton, Toggle, VerdictBadge, fmtDate, fmtDuration, pct } from '../components/ui';
+import { Button, Card, ErrorState, PageHeader, ScorePill, Skeleton, SuccessBurst, Toggle, VerdictBadge, fmtDate, fmtDuration, pct } from '../components/ui';
 
 interface CriterionResult {
   id: string;
@@ -86,6 +86,7 @@ export function CallReview() {
   const [overrides, setOverrides] = useState<Record<string, CriterionVerdict>>({});
   const [note, setNote] = useState('');
   const [onlyIssues, setOnlyIssues] = useState(false);
+  const [burst, setBurst] = useState(false);
   const [focused, setFocused] = useState(0);
   const [highlightIdx, setHighlightIdx] = useState<number | null>(null);
   const utteranceRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -164,6 +165,7 @@ export function CallReview() {
       qc.invalidateQueries({ queryKey: ['interaction', id] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       qc.invalidateQueries({ queryKey: ['interactions'] });
+      setBurst(true);
       toast('success', 'Review saved');
     },
     onError: () => toast('error', 'Failed to save review'),
@@ -235,10 +237,16 @@ export function CallReview() {
         </div>
       </div>
     );
-  if (error || !data) return <div className="text-rose-600">Failed to load call.</div>;
+  if (error || !data)
+    return (
+      <Card>
+        <ErrorState title="Couldn’t load this call" onRetry={() => qc.invalidateQueries({ queryKey: ['interaction', id] })} />
+      </Card>
+    );
 
   return (
     <div>
+      {burst && <SuccessBurst message="Review saved" onDone={() => setBurst(false)} />}
       <PageHeader
         title={`Call — ${data.agent?.name ?? 'Unknown agent'}`}
         subtitle={`${fmtDate(data.startedAt)} · ${data.queue ?? 'No queue'} · ${data.direction} · ${fmtDuration(data.durationSec)}`}
