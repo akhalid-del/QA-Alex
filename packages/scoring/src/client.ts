@@ -49,7 +49,9 @@ export class ScoringClient {
     const msg = await this.client.messages.create({
       model: this.model,
       max_tokens: this.maxTokens,
-      temperature: 0,
+      // `temperature` is deprecated/unsupported on some newer models (e.g.
+      // claude-opus-4-8) and the API 400s if it's present at all. The forced
+      // tool_choice already keeps output structured/consistent without it.
       system: buildSystemPrompt(input),
       tools: [tool as Anthropic.Tool],
       tool_choice: { type: 'tool', name: 'submit_evaluation' },
