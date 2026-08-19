@@ -8,6 +8,7 @@ import { authenticate, requirePermission } from '../middleware/auth';
 import { interactionScopeWhere } from '../lib/scope';
 import { presignRecordingUrl } from '../lib/storage';
 import { runScoringForInteraction } from '../lib/scoring-run';
+import { createRecordingUpload, supabaseConfigured } from '../lib/supabase-storage';
 import { config } from '../env';
 import { audit } from '../lib/audit';
 
@@ -117,6 +118,22 @@ interactionsRouter.post(
     const interaction = await createManualInteraction({ ...input, recordingKey: input.recordingUrl });
     await audit({ actorId: req.user!.id, action: 'interaction.manual_create', entity: 'Interaction', entityId: interaction.id });
     res.status(201).json(interaction);
+  }),
+);
+
+// POST /interactions/recordings/sign — get a signed URL to upload a recording
+// DIRECTLY to Supabase Storage (browser → Storage), bypassing the API's ~4.5MB
+// request limit. The returned publicUrl is then passed to POST /manual.
+interactionsRouter.post(
+  '/recordings/sign',
+  requirePermission('interaction:create'),
+  asyncHandler(async (req, res) => {
+    if (!supabaseConfigured()) {
+      throw badRequest('Large uploads are not configured yet (Supabase Storage keys are missing).');
+    }
+    const filename = typeof req.body?.filename === 'string' ? req.body.filename : 'recording.mp3';
+    const signed = await createRecordingUpload(filename);
+    res.json(signed);
   }),
 );
 

@@ -34,6 +34,7 @@ export function createApp() {
       transcriptionConfigured: Boolean(config.ASSEMBLYAI_API_KEY),
       scoringConfigured: Boolean(config.ANTHROPIC_API_KEY),
       queueConfigured: Boolean(config.REDIS_URL),
+      uploadConfigured: Boolean(config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY),
     });
   });
 

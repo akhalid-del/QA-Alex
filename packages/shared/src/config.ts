@@ -34,6 +34,11 @@ const EnvSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().default('minioadmin'),
   S3_FORCE_PATH_STYLE: boolish,
 
+  // Supabase Storage — direct large-file uploads (browser → Storage → AssemblyAI).
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_RECORDINGS_BUCKET: z.string().default('recordings'),
+
   RC_SERVER_URL: z.string().default('https://platform.ringcentral.com'),
   RC_ENGAGE_URL: z.string().default('https://engage.ringcentral.com'),
   RC_CLIENT_ID: z.string().optional(),

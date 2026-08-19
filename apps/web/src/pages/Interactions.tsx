@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, qs, ApiError } from '../api/client';
+import { uploadRecording } from '../api/storage';
 import { useAuth } from '../auth/AuthContext';
 import { useToast } from '../components/Toast';
 import { Button, Card, EmptyState, PageHeader, ScorePill, Skeleton, fmtDate, fmtDuration } from '../components/ui';
@@ -243,18 +244,14 @@ function AddCallModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
+      let url = recordingUrl;
       if (mode === 'upload') {
         if (!file) throw new Error('Choose a file first');
-        const form = new FormData();
-        form.set('file', file);
-        if (agentId) form.set('agentId', agentId);
-        if (queue) form.set('queue', queue);
-        form.set('direction', direction);
-        return api.postForm<{ id: string }>('/interactions/manual/upload', form);
+        url = await uploadRecording(file); // browser → Supabase Storage (no size limit)
       }
       return api.post<{ id: string }>('/interactions/manual', {
-        recordingUrl,
+        recordingUrl: url,
         agentId: agentId || undefined,
         queue: queue || undefined,
         direction,
@@ -304,7 +301,7 @@ function AddCallModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
       </div>
 
       {mode === 'upload' ? (
-        <Field label="Recording file" hint="MP3/WAV, up to ~4MB (roughly a few minutes of MP3 audio).">
+        <Field label="Recording file" hint="MP3/WAV/M4A, up to 50MB — real full-length calls are fine. Uploaded directly and securely.">
           <input
             type="file"
             accept="audio/*"
