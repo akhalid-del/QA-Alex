@@ -1,5 +1,7 @@
 import { Queue } from 'bullmq';
-import IORedis from 'ioredis';
+// Named import (not default) so this compiles under any esModuleInterop
+// setting — Vercel's function compiler is stricter than our local tsconfig.
+import { Redis } from 'ioredis';
 
 /**
  * Shared BullMQ queue layer. Both the API (to enqueue work) and the worker
@@ -30,11 +32,11 @@ export interface ScoreJob {
   scorecardId?: string;
 }
 
-let _connection: IORedis | null = null;
-export function getConnection(): IORedis {
+let _connection: Redis | null = null;
+export function getConnection(): Redis {
   if (!_connection) {
     const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
-    _connection = new IORedis(url, { maxRetriesPerRequest: null, lazyConnect: true });
+    _connection = new Redis(url, { maxRetriesPerRequest: null, lazyConnect: true });
   }
   return _connection;
 }

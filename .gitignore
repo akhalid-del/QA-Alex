@@ -16,3 +16,7 @@ packages/db/prisma/migrations/dev.db*
 .vscode/*
 !.vscode/extensions.json
 storage-local/
+
+# tooling
+.vercel/
+supabase/.temp/
