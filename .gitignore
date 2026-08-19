@@ -20,3 +20,7 @@ storage-local/
 # tooling
 .vercel/
 supabase/.temp/
+
+.vercel
+.env*
+apps/api/api/
