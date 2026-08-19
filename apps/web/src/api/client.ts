@@ -54,7 +54,16 @@ async function requestForm<T>(path: string, form: FormData): Promise<T> {
   });
   if (res.status === 401) setToken(null);
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: { error?: string; details?: unknown } | null = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // Non-JSON body (e.g. Vercel's plaintext 413 for oversized uploads).
+    if (res.status === 413) {
+      throw new ApiError(413, 'File too large to upload (over ~4MB). Use a shorter or more compressed clip.');
+    }
+    if (!res.ok) throw new ApiError(res.status, res.statusText || 'Upload failed');
+  }
   if (!res.ok) throw new ApiError(res.status, data?.error ?? res.statusText, data?.details);
   return data as T;
 }
