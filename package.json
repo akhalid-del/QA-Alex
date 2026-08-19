@@ -1,0 +1,32 @@
+{
+  "name": "ringcx-qa-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Call center quality monitoring platform for RingCX (SUB-Logical Technology Solutions)",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "db:generate": "npm run generate -w @qa/db",
+    "db:migrate": "npm run migrate -w @qa/db",
+    "db:push": "npm run push -w @qa/db",
+    "db:seed": "npm run seed -w @qa/db",
+    "dev:api": "npm run dev -w @qa/api",
+    "dev:web": "npm run dev -w @qa/web",
+    "dev:worker": "npm run dev -w @qa/worker",
+    "dev:mock": "npm run dev -w @qa/mock",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

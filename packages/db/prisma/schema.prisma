@@ -1,0 +1,273 @@
+// RingCX QA Platform — data model
+// See plan: C:\Users\alex.khalid\.claude\plans\glimmering-dreaming-mist.md
+
+generator client {
+  provider      = "prisma-client-js"
+  // "native" for local dev (Windows/Mac); rhel-openssl-3.0.x for Vercel's
+  // Node serverless runtime (Amazon Linux 2023). Without this, Prisma's
+  // query engine binary is missing at runtime on Vercel.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  // Runtime uses the pooled connection (Supabase pgBouncer, port 6543,
+  // ?pgbouncer=true). Migrations use the direct connection (port 5432).
+  // For local/Neon without a pooler, set DIRECT_URL = DATABASE_URL.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  QA_MANAGER
+  QA_ANALYST
+  TEAM_LEAD
+  AGENT
+}
+
+enum InteractionStatus {
+  INGESTED
+  TRANSCRIBING
+  TRANSCRIBED
+  SCORING
+  SCORED
+  REVIEWED
+  FAILED
+}
+
+enum CallDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum Verdict {
+  PASS
+  FAIL
+}
+
+enum CriterionVerdict {
+  PASS
+  FAIL
+  NA
+}
+
+enum DisputeStatus {
+  OPEN
+  UPHELD
+  OVERTURNED
+}
+
+enum ScoringMode {
+  // Start at `startingScore`, subtract each committed mistake's `deduction`;
+  // any fatal (autoFail) mistake => 0. Typical call-center QA form.
+  DEDUCTION
+  // Weighted pass-ratio of criteria; fatal => fail. (Alternative model.)
+  WEIGHTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role
+  active       Boolean  @default(true)
+  team         Team?    @relation("TeamMembers", fields: [teamId], references: [id])
+  teamId       String?
+  agent        Agent?   @relation(fields: [agentId], references: [id])
+  agentId      String?  @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ledTeams   Team[]       @relation("TeamLead")
+  reviews    Review[]
+  disputes   Dispute[]    @relation("DisputeRaisedBy")
+  resolved   Dispute[]    @relation("DisputeResolvedBy")
+  auditLogs  AuditLog[]
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  lead      User?    @relation("TeamLead", fields: [leadId], references: [id])
+  leadId    String?
+  members   User[]   @relation("TeamMembers")
+  agents    Agent[]
+  createdAt DateTime @default(now())
+}
+
+model Agent {
+  id        String   @id @default(cuid())
+  rcAgentId String   @unique // RingCX agent id
+  username  String
+  name      String
+  team      Team?    @relation(fields: [teamId], references: [id])
+  teamId    String?
+  active    Boolean  @default(true)
+  user      User?
+  createdAt DateTime @default(now())
+
+  interactions Interaction[]
+}
+
+model Interaction {
+  id           String            @id @default(cuid())
+  dialogId     String
+  segmentId    String
+  agent        Agent?            @relation(fields: [agentId], references: [id])
+  agentId      String?
+  queue        String?
+  direction    CallDirection     @default(INBOUND)
+  ani          String? // caller number
+  dnis         String? // dialed number
+  startedAt    DateTime
+  durationSec  Int               @default(0)
+  recordingKey String? // object-storage key for the .wav
+  sampled      Boolean           @default(false) // selected for QA scoring
+  status       InteractionStatus @default(INGESTED)
+  statusError  String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  transcript  Transcript?
+  evaluations Evaluation[]
+
+  @@unique([dialogId, segmentId])
+  @@index([agentId])
+  @@index([startedAt])
+  @@index([status])
+}
+
+model Transcript {
+  id               String      @id @default(cuid())
+  interaction      Interaction @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+  interactionId    String      @unique
+  provider         String      @default("assemblyai")
+  providerRef      String? // AssemblyAI transcript id
+  fullText         String
+  utterances       Json // Utterance[]
+  redactionApplied Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+}
+
+model Scorecard {
+  id            String      @id @default(cuid())
+  name          String
+  description   String      @default("")
+  version       Int         @default(1)
+  active        Boolean     @default(true) // exactly one active per name lineage
+  scoringMode   ScoringMode @default(DEDUCTION)
+  startingScore Int         @default(100) // deduction mode: points before mistakes
+  passThreshold Float       @default(0.9) // min fraction of startingScore to PASS
+  referenceScript String    @default("") // approved word-for-word script the AI grades adherence against
+  criteria      Criterion[]
+  evaluations   Evaluation[]
+  createdAt     DateTime    @default(now())
+  createdBy     String?
+
+  @@index([active])
+}
+
+model Criterion {
+  id          String    @id @default(cuid())
+  scorecard   Scorecard @relation(fields: [scorecardId], references: [id], onDelete: Cascade)
+  scorecardId String
+  code        String
+  title       String
+  guidance    String    @default("")
+  category    String    @default("General")
+  weight      Int       @default(1) // weighted mode
+  deduction   Int       @default(0) // deduction mode: points lost if committed
+  autoFail    Boolean   @default(false) // fatal mistake
+  order       Int       @default(0)
+
+  results CriterionResult[]
+
+  @@index([scorecardId])
+}
+
+model Evaluation {
+  id            String      @id @default(cuid())
+  interaction   Interaction @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+  interactionId String
+  scorecard     Scorecard   @relation(fields: [scorecardId], references: [id])
+  scorecardId   String
+  aiVerdict     Verdict
+  aiScore       Float?
+  finalVerdict  Verdict
+  finalScore    Float?
+  autoFailTriggered Boolean @default(false)
+  model         String? // LLM model used
+  summary       String      @default("") // short AI narrative
+  reviewed      Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  criterionResults CriterionResult[]
+  reviews          Review[]
+  disputes         Dispute[]
+
+  @@index([interactionId])
+  @@index([finalVerdict])
+}
+
+model CriterionResult {
+  id                 String           @id @default(cuid())
+  evaluation         Evaluation       @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  evaluationId       String
+  criterion          Criterion        @relation(fields: [criterionId], references: [id])
+  criterionId        String
+  aiVerdict          CriterionVerdict
+  verdict            CriterionVerdict // current (post-override) verdict
+  evidenceQuote      String           @default("")
+  evidenceTimestampMs Int?
+  aiRationale        String           @default("")
+  humanOverride      Boolean          @default(false)
+  overrideNote       String?
+
+  @@index([evaluationId])
+}
+
+model Review {
+  id           String     @id @default(cuid())
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  evaluationId String
+  reviewer     User       @relation(fields: [reviewerId], references: [id])
+  reviewerId   String
+  note         String?
+  createdAt    DateTime   @default(now())
+
+  @@index([evaluationId])
+}
+
+model Dispute {
+  id           String        @id @default(cuid())
+  evaluation   Evaluation    @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  evaluationId String
+  raisedBy     User          @relation("DisputeRaisedBy", fields: [raisedById], references: [id])
+  raisedById   String
+  reason       String
+  status       DisputeStatus @default(OPEN)
+  resolvedBy   User?         @relation("DisputeResolvedBy", fields: [resolvedById], references: [id])
+  resolvedById String?
+  resolution   String?
+  createdAt    DateTime      @default(now())
+  resolvedAt   DateTime?
+
+  @@index([status])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     User?    @relation(fields: [actorId], references: [id])
+  actorId   String?
+  action    String // e.g. "evaluation.override", "scorecard.update"
+  entity    String // e.g. "Evaluation"
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
