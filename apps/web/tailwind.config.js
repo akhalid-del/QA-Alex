@@ -14,6 +14,7 @@ export default {
           500: '#3b6fe0',
           600: '#2f59c4',
           700: '#274aa3',
+          800: '#213f8a',
           900: '#1b3273',
         },
         // Clean light body; the blue sidebar carries the design (option D).
