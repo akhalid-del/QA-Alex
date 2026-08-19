@@ -19,6 +19,8 @@ export const s3 = new S3Client({
 
 /** Presigned GET URL for a recording, valid for `expiresIn` seconds. */
 export async function presignRecordingUrl(key: string, expiresIn = 900): Promise<string | null> {
+  // Manually-added calls store a full external URL directly — already playable, nothing to sign.
+  if (key.startsWith('http://') || key.startsWith('https://')) return key;
   // Seeded demo objects don't actually exist in storage — skip signing them.
   if (key.startsWith('demo/')) return null;
   const cmd = new GetObjectCommand({ Bucket: config.S3_BUCKET, Key: key });

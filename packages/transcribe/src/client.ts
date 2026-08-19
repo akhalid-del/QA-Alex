@@ -20,6 +20,7 @@ export interface TranscriptResult {
   fullText: string;
   utterances: Utterance[];
   redactionApplied: boolean;
+  audioDurationSec?: number;
 }
 
 export interface TranscribeOptions {
@@ -29,12 +30,22 @@ export interface TranscribeOptions {
   timeoutMs?: number;
 }
 
+export interface TranscriptStatus {
+  status: 'queued' | 'processing' | 'completed' | 'error';
+  error?: string;
+  text?: string;
+  utterances?: RawUtterance[];
+  audioDurationSec?: number;
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * AssemblyAI transcription adapter. Uploads the recording bytes, requests
- * speaker diarization + PII redaction, polls until complete, and returns a
- * normalized transcript with AGENT/CUSTOMER-labelled utterances.
+ * AssemblyAI transcription adapter. Supports both the blocking flow (upload/
+ * submit + poll to completion, used by the worker's queue job) and a
+ * non-blocking submit + single-status-check pair (used by the API's manual
+ * "add a call" flow, which advances one step per request to stay inside
+ * serverless function time limits — see apps/api/src/routes/interactions.ts).
  */
 export class AssemblyAIClient {
   constructor(private apiKey: string) {}
@@ -48,21 +59,18 @@ export class AssemblyAIClient {
     const res = await fetch(`${API}/upload`, {
       method: 'POST',
       headers: this.headers({ 'content-type': 'application/octet-stream' }),
-      body: bytes as unknown as BodyInit,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      body: bytes as any, // avoids depending on the DOM lib's BodyInit type, which isn't present in every consumer's tsconfig
     });
     if (!res.ok) throw new Error(`AssemblyAI upload failed: ${res.status} ${await safeText(res)}`);
     const json = (await res.json()) as { upload_url: string };
     return json.upload_url;
   }
 
-  async transcribeBytes(bytes: Uint8Array, opts: TranscribeOptions): Promise<TranscriptResult> {
-    const uploadUrl = await this.upload(bytes);
-    return this.transcribeUrl(uploadUrl, opts);
-  }
-
-  async transcribeUrl(audioUrl: string, opts: TranscribeOptions): Promise<TranscriptResult> {
+  /** Create a transcript job for a (publicly fetchable) audio URL. Returns immediately — does not wait for completion. */
+  async submitUrl(audioUrl: string, opts: { redactPii?: boolean } = {}): Promise<string> {
     const redact = opts.redactPii ?? true;
-    const createRes = await fetch(`${API}/transcript`, {
+    const res = await fetch(`${API}/transcript`, {
       method: 'POST',
       headers: this.headers({ 'content-type': 'application/json' }),
       body: JSON.stringify({
@@ -71,11 +79,34 @@ export class AssemblyAIClient {
         ...(redact ? { redact_pii: true, redact_pii_policies: PII_POLICIES, redact_pii_audio: false } : {}),
       }),
     });
-    if (!createRes.ok) {
-      throw new Error(`AssemblyAI create failed: ${createRes.status} ${await safeText(createRes)}`);
-    }
-    const created = (await createRes.json()) as { id: string };
-    const id = created.id;
+    if (!res.ok) throw new Error(`AssemblyAI create failed: ${res.status} ${await safeText(res)}`);
+    const created = (await res.json()) as { id: string };
+    return created.id;
+  }
+
+  /** Single status check — does not poll or wait. */
+  async getStatus(id: string): Promise<TranscriptStatus> {
+    const res = await fetch(`${API}/transcript/${id}`, { headers: this.headers() });
+    if (!res.ok) throw new Error(`AssemblyAI status check failed: ${res.status}`);
+    const t = (await res.json()) as {
+      status: TranscriptStatus['status'];
+      error?: string;
+      text?: string;
+      utterances?: RawUtterance[];
+      audio_duration?: number;
+    };
+    return { status: t.status, error: t.error, text: t.text, utterances: t.utterances, audioDurationSec: t.audio_duration };
+  }
+
+  async transcribeBytes(bytes: Uint8Array, opts: TranscribeOptions): Promise<TranscriptResult> {
+    const uploadUrl = await this.upload(bytes);
+    return this.transcribeUrl(uploadUrl, opts);
+  }
+
+  /** Submit + poll to completion (blocking). Used by the worker's queue job. */
+  async transcribeUrl(audioUrl: string, opts: TranscribeOptions): Promise<TranscriptResult> {
+    const redact = opts.redactPii ?? true;
+    const id = await this.submitUrl(audioUrl, { redactPii: redact });
 
     const interval = opts.pollIntervalMs ?? 4000;
     const deadline = Date.now() + (opts.timeoutMs ?? 15 * 60_000);
@@ -83,14 +114,7 @@ export class AssemblyAIClient {
     while (true) {
       if (Date.now() > deadline) throw new Error(`AssemblyAI transcript ${id} timed out`);
       await sleep(interval);
-      const pollRes = await fetch(`${API}/transcript/${id}`, { headers: this.headers() });
-      if (!pollRes.ok) throw new Error(`AssemblyAI poll failed: ${pollRes.status}`);
-      const t = (await pollRes.json()) as {
-        status: string;
-        error?: string;
-        text?: string;
-        utterances?: RawUtterance[];
-      };
+      const t = await this.getStatus(id);
       if (t.status === 'error') throw new Error(`AssemblyAI transcription error: ${t.error}`);
       if (t.status === 'completed') {
         const utterances = mapSpeakers(t.utterances ?? [], opts.direction);
@@ -99,6 +123,7 @@ export class AssemblyAIClient {
           fullText: t.text ?? utterancesToText(utterances),
           utterances,
           redactionApplied: redact,
+          audioDurationSec: t.audioDurationSec,
         };
       }
       // queued / processing → keep polling

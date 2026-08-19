@@ -6,7 +6,7 @@ import { computeVerdict } from '@qa/shared/scorecard';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useToast } from '../components/Toast';
-import { Button, Card, ErrorState, PageHeader, ScorePill, Skeleton, SuccessBurst, Toggle, VerdictBadge, fmtDate, fmtDuration, pct } from '../components/ui';
+import { Button, Card, ErrorState, PageHeader, ScorePill, Skeleton, Spinner, SuccessBurst, Toggle, VerdictBadge, fmtDate, fmtDuration, pct } from '../components/ui';
 
 interface CriterionResult {
   id: string;
@@ -62,10 +62,14 @@ interface Detail {
   startedAt: string;
   durationSec: number;
   status: string;
+  statusError: string | null;
+  manual: boolean;
   recordingUrl: string | null;
   transcript: { utterances: Utterance[]; fullText: string; redactionApplied: boolean } | null;
   evaluation: Evaluation | null;
 }
+
+const IN_PROGRESS_STATUSES = ['INGESTED', 'TRANSCRIBING', 'TRANSCRIBED', 'SCORING'];
 
 const VERDICTS: CriterionVerdict[] = ['PASS', 'FAIL', 'NA'];
 
@@ -189,6 +193,19 @@ export function CallReview() {
       toast('success', 'Dispute resolved');
     },
   });
+
+  // Drive a manually-added call through transcribe → score, one step per poll.
+  const advance = useMutation({
+    mutationFn: () => api.post<{ status: string; statusError?: string }>(`/interactions/${id}/advance`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['interaction', id] }),
+  });
+  useEffect(() => {
+    if (!data?.manual || !can('interaction:create')) return;
+    if (!IN_PROGRESS_STATUSES.includes(data.status)) return;
+    const t = setInterval(() => advance.mutate(), 4000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.status, data?.manual, id]);
 
   const nextUnreviewed = useMutation({
     mutationFn: () => api.get<{ items: { id: string }[] }>(`/interactions?status=SCORED&pageSize=1`),
@@ -316,7 +333,7 @@ export function CallReview() {
         {/* Evaluation */}
         <div className="lg:col-span-2 space-y-6">
           {!evaluation ? (
-            <Card className="p-6 text-center text-sm text-slate-400">This call has not been scored yet.</Card>
+            <ProgressCard data={data} onCheckNow={() => advance.mutate()} checking={advance.isPending} />
           ) : (
             <>
               {/* Sticky score header */}
@@ -482,5 +499,57 @@ export function CallReview() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ProgressCard({ data, onCheckNow, checking }: { data: Detail; onCheckNow: () => void; checking: boolean }) {
+  if (!data.manual) {
+    return <Card className="p-6 text-center text-sm text-slate-400">This call has not been scored yet.</Card>;
+  }
+
+  const steps = [
+    { key: 'INGESTED', label: 'Submitting for transcription' },
+    { key: 'TRANSCRIBING', label: 'Transcribing the recording' },
+    { key: 'TRANSCRIBED', label: 'Scoring against the rubric' },
+  ];
+  const order = ['INGESTED', 'TRANSCRIBING', 'TRANSCRIBED', 'SCORED'];
+  const currentIdx = data.status === 'FAILED' ? -1 : Math.max(0, order.indexOf(data.status));
+
+  return (
+    <Card className="p-5">
+      <h2 className="mb-4 text-sm font-semibold text-slate-700">Processing this call</h2>
+      <div className="space-y-3">
+        {steps.map((s, i) => {
+          const active = data.status !== 'FAILED' && currentIdx === i;
+          return (
+            <div key={s.key} className="flex items-center gap-3 text-sm">
+              <span
+                className={
+                  'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ' +
+                  (i < currentIdx ? 'bg-emerald-500 text-white' : active ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-500')
+                }
+              >
+                {i < currentIdx ? '✓' : i + 1}
+              </span>
+              <span className={i < currentIdx ? 'text-slate-400 line-through' : active ? 'font-medium text-slate-800' : 'text-slate-400'}>
+                {s.label}
+              </span>
+              {active && !data.statusError && <Spinner />}
+            </div>
+          );
+        })}
+      </div>
+
+      {data.statusError && (
+        <div className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          <b>{data.status === 'FAILED' ? 'Failed: ' : 'Waiting on config: '}</b>
+          {data.statusError}
+        </div>
+      )}
+
+      <Button variant="outline" className="mt-4 w-full" onClick={onCheckNow} disabled={checking}>
+        {checking ? 'Checking…' : 'Check now'}
+      </Button>
+    </Card>
   );
 }

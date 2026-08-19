@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { api, qs } from '../api/client';
+import { Link, useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, qs, ApiError } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
+import { useToast } from '../components/Toast';
 import { Button, Card, EmptyState, PageHeader, ScorePill, Skeleton, fmtDate, fmtDuration } from '../components/ui';
+import { Field, Modal, SelectInput, TextInput } from '../components/form';
 
 interface Row {
   id: string;
@@ -12,7 +15,9 @@ interface Row {
   startedAt: string;
   durationSec: number;
   sampled: boolean;
+  manual: boolean;
   status: string;
+  statusError: string | null;
   evaluation: { id: string; finalVerdict: 'PASS' | 'FAIL'; finalScore: number | null; reviewed: boolean } | null;
 }
 interface ListResponse {
@@ -27,12 +32,14 @@ interface Agent {
 }
 
 export function Interactions() {
+  const { can } = useAuth();
   const [page, setPage] = useState(1);
   const [view, setView] = useState<'all' | 'needsReview'>('needsReview');
   const [verdict, setVerdict] = useState('');
   const [agentId, setAgentId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [adding, setAdding] = useState(false);
 
   const status = view === 'needsReview' ? 'SCORED' : '';
 
@@ -44,6 +51,7 @@ export function Interactions() {
       api.get<ListResponse>(
         '/interactions' + qs({ page, pageSize: 25, status, verdict, agentId, from: dateParam(from), to: dateParam(to, true) }),
       ),
+    refetchInterval: 5000, // pick up manually-added calls progressing through transcribe/score
   });
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
@@ -57,7 +65,11 @@ export function Interactions() {
 
   return (
     <div>
-      <PageHeader title="Calls" subtitle="Interactions ingested from RingCX" />
+      <PageHeader
+        title="Calls"
+        subtitle="Interactions ingested from RingCX"
+        actions={can('interaction:create') ? <Button onClick={() => setAdding(true)}>+ Add call</Button> : undefined}
+      />
 
       {/* View toggle */}
       <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
@@ -130,7 +142,17 @@ export function Interactions() {
             ))}
           </div>
         ) : data && data.items.length === 0 ? (
-          <EmptyState title="No calls match these filters." hint="Try switching to All calls or clearing filters." />
+          <EmptyState
+            title="No calls match these filters."
+            hint="Try switching to All calls or clearing filters."
+            action={
+              can('interaction:create') ? (
+                <Button variant="outline" onClick={() => setAdding(true)}>
+                  + Add a call manually
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
           <table className="w-full text-sm">
             <thead>
@@ -152,7 +174,11 @@ export function Interactions() {
                   <td className="px-4 py-3 text-slate-600">{r.queue ?? '—'}</td>
                   <td className="px-4 py-3 text-slate-600">{fmtDuration(r.durationSec)}</td>
                   <td className="px-4 py-3">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{r.status}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{r.status}</span>
+                      {r.manual && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">Manual</span>}
+                      {r.statusError && <span className="text-xs text-rose-500" title={r.statusError}>⚠</span>}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {r.evaluation ? (
@@ -168,6 +194,10 @@ export function Interactions() {
                     {r.evaluation ? (
                       <Link to={`/interactions/${r.id}`} className="font-medium text-brand-600 hover:underline">
                         Review
+                      </Link>
+                    ) : r.manual ? (
+                      <Link to={`/interactions/${r.id}`} className="font-medium text-brand-600 hover:underline">
+                        View
                       </Link>
                     ) : (
                       <span className="text-xs text-slate-300">—</span>
@@ -194,7 +224,76 @@ export function Interactions() {
           </Button>
         </div>
       </div>
+
+      {adding && <AddCallModal agents={agents.data ?? []} onClose={() => setAdding(false)} />}
     </div>
+  );
+}
+
+function AddCallModal({ agents, onClose }: { agents: Agent[]; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [recordingUrl, setRecordingUrl] = useState('');
+  const [agentId, setAgentId] = useState('');
+  const [queue, setQueue] = useState('');
+  const [direction, setDirection] = useState<'OUTBOUND' | 'INBOUND'>('OUTBOUND');
+  const [error, setError] = useState<string | null>(null);
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.post<{ id: string }>('/interactions/manual', {
+        recordingUrl,
+        agentId: agentId || undefined,
+        queue: queue || undefined,
+        direction,
+      }),
+    onSuccess: (created) => {
+      qc.invalidateQueries({ queryKey: ['interactions'] });
+      toast('success', 'Call added — transcribing now');
+      onClose();
+      navigate(`/interactions/${created.id}`);
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : 'Failed to add call'),
+  });
+
+  return (
+    <Modal
+      open
+      title="Add a call manually"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => create.mutate()} disabled={!recordingUrl || create.isPending}>
+            {create.isPending ? 'Adding…' : 'Add & transcribe'}
+          </Button>
+        </>
+      }
+    >
+      <Field label="Recording URL" hint="A direct, publicly playable audio link (mp3/wav). No login-gated links.">
+        <TextInput value={recordingUrl} onChange={setRecordingUrl} placeholder="https://example.com/recording.mp3" />
+      </Field>
+      <Field label="Agent (optional)">
+        <SelectInput value={agentId} onChange={setAgentId} options={[{ value: '', label: 'Unknown' }, ...agents.map((a) => ({ value: a.id, label: a.name }))]} />
+      </Field>
+      <Field label="Queue (optional)">
+        <TextInput value={queue} onChange={setQueue} placeholder="IHG Survey - East" />
+      </Field>
+      <Field label="Direction">
+        <SelectInput
+          value={direction}
+          onChange={(v) => setDirection(v as 'OUTBOUND' | 'INBOUND')}
+          options={[
+            { value: 'OUTBOUND', label: 'Outbound' },
+            { value: 'INBOUND', label: 'Inbound' },
+          ]}
+        />
+      </Field>
+      {error && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
+    </Modal>
   );
 }
 

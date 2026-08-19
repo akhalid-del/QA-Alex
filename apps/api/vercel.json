@@ -3,5 +3,8 @@
   "buildCommand": "npx --yes prisma generate --schema ../../packages/db/prisma/schema.prisma && node build.mjs",
   "outputDirectory": "public",
   "framework": null,
+  "functions": {
+    "api/index.js": { "maxDuration": 60 }
+  },
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }

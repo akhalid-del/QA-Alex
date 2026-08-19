@@ -1,5 +1,16 @@
 import { z } from 'zod';
-import { CRITERION_VERDICTS, ROLES } from './types';
+import { CALL_DIRECTIONS, CRITERION_VERDICTS, ROLES } from './types';
+
+/** Manually add a call by pasting a recording link */
+export const ManualInteractionInput = z.object({
+  recordingUrl: z.string().url(),
+  agentId: z.string().optional(),
+  queue: z.string().max(100).optional(),
+  direction: z.enum(CALL_DIRECTIONS).default('OUTBOUND'),
+  startedAt: z.string().optional(),
+  durationSec: z.number().int().min(0).optional(),
+});
+export type ManualInteractionInput = z.infer<typeof ManualInteractionInput>;
 
 /** Auth */
 export const LoginInput = z.object({

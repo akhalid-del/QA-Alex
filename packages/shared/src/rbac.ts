@@ -10,6 +10,7 @@ export const PERMISSIONS = [
   'interaction:read:all', // see every team's calls
   'interaction:read:team', // see own team's calls
   'interaction:read:own', // agent: see only their own calls
+  'interaction:create', // manually add a call by pasting a recording link
   // Evaluations
   'evaluation:read',
   'evaluation:review', // confirm/override an AI verdict
@@ -37,6 +38,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ADMIN: [...PERMISSIONS],
   QA_MANAGER: [
     'interaction:read:all',
+    'interaction:create',
     'evaluation:read',
     'evaluation:review',
     'evaluation:resolve_dispute',
@@ -49,6 +51,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   QA_ANALYST: [
     'interaction:read:all',
+    'interaction:create',
     'evaluation:read',
     'evaluation:review',
     'scorecard:read',

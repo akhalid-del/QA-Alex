@@ -123,8 +123,9 @@ model Interaction {
   dnis         String? // dialed number
   startedAt    DateTime
   durationSec  Int               @default(0)
-  recordingKey String? // object-storage key for the .wav
+  recordingKey String? // object-storage key OR an external URL (manual entries)
   sampled      Boolean           @default(false) // selected for QA scoring
+  manual       Boolean           @default(false) // added via a pasted link, not RingCX
   status       InteractionStatus @default(INGESTED)
   statusError  String?
   createdAt    DateTime          @default(now())
