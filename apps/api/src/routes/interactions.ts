@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { InteractionQuery, ManualInteractionInput } from '@qa/shared';
+import multer from 'multer';
+import { CALL_DIRECTIONS, InteractionQuery, ManualInteractionInput } from '@qa/shared';
 import { prisma, type Prisma } from '@qa/db';
 import { AssemblyAIClient, mapSpeakers, utterancesToText } from '@qa/transcribe';
 import { asyncHandler, badRequest, notFound } from '../lib/http';
@@ -12,6 +13,11 @@ import { audit } from '../lib/audit';
 
 export const interactionsRouter = Router();
 interactionsRouter.use(authenticate);
+
+// Memory storage (no disk writes) — the file is relayed straight through to
+// AssemblyAI's own upload endpoint, never stored by us. Kept small: Vercel's
+// serverless request body cap is ~4.5MB.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4_000_000 } });
 
 // GET /interactions — filtered, paginated list scoped to the user's role.
 interactionsRouter.get(
@@ -76,6 +82,31 @@ interactionsRouter.get(
   }),
 );
 
+async function createManualInteraction(params: {
+  recordingKey: string;
+  agentId?: string;
+  queue?: string;
+  direction: 'INBOUND' | 'OUTBOUND';
+  startedAt?: string;
+  durationSec?: number;
+}) {
+  return prisma.interaction.create({
+    data: {
+      dialogId: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      segmentId: 'manual',
+      agentId: params.agentId ?? null,
+      queue: params.queue ?? null,
+      direction: params.direction,
+      startedAt: params.startedAt ? new Date(params.startedAt) : new Date(),
+      durationSec: params.durationSec ?? 0,
+      recordingKey: params.recordingKey,
+      sampled: true,
+      manual: true,
+      status: 'INGESTED',
+    },
+  });
+}
+
 // POST /interactions/manual — add a call by pasting a recording link. Creates
 // the row only; POST /:id/advance drives it through transcribe → score.
 interactionsRouter.post(
@@ -83,27 +114,37 @@ interactionsRouter.post(
   requirePermission('interaction:create'),
   asyncHandler(async (req, res) => {
     const input = ManualInteractionInput.parse(req.body);
-    const interaction = await prisma.interaction.create({
-      data: {
-        dialogId: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        segmentId: 'manual',
-        agentId: input.agentId ?? null,
-        queue: input.queue ?? null,
-        direction: input.direction,
-        startedAt: input.startedAt ? new Date(input.startedAt) : new Date(),
-        durationSec: input.durationSec ?? 0,
-        recordingKey: input.recordingUrl,
-        sampled: true,
-        manual: true,
-        status: 'INGESTED',
-      },
+    const interaction = await createManualInteraction({ ...input, recordingKey: input.recordingUrl });
+    await audit({ actorId: req.user!.id, action: 'interaction.manual_create', entity: 'Interaction', entityId: interaction.id });
+    res.status(201).json(interaction);
+  }),
+);
+
+// POST /interactions/manual/upload — add a call by uploading a file directly.
+// The file is relayed straight to AssemblyAI's upload endpoint (no S3/storage
+// setup needed) and its hosted URL becomes the recording link, same as if it
+// had been pasted — the rest of the transcribe/score flow is identical.
+interactionsRouter.post(
+  '/manual/upload',
+  requirePermission('interaction:create'),
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw badRequest('No file uploaded (field name must be "file")');
+    if (!config.ASSEMBLYAI_API_KEY) {
+      throw badRequest('Uploads require transcription to be configured (ASSEMBLYAI_API_KEY is not set)');
+    }
+    const direction = CALL_DIRECTIONS.includes(req.body.direction) ? req.body.direction : 'OUTBOUND';
+
+    const aai = new AssemblyAIClient(config.ASSEMBLYAI_API_KEY);
+    const hostedUrl = await aai.upload(req.file.buffer);
+
+    const interaction = await createManualInteraction({
+      recordingKey: hostedUrl,
+      agentId: req.body.agentId || undefined,
+      queue: req.body.queue || undefined,
+      direction,
     });
-    await audit({
-      actorId: req.user!.id,
-      action: 'interaction.manual_create',
-      entity: 'Interaction',
-      entityId: interaction.id,
-    });
+    await audit({ actorId: req.user!.id, action: 'interaction.manual_upload', entity: 'Interaction', entityId: interaction.id });
     res.status(201).json(interaction);
   }),
 );

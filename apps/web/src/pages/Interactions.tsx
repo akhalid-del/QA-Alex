@@ -234,20 +234,32 @@ function AddCallModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
   const qc = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
+  const [mode, setMode] = useState<'link' | 'upload'>('upload');
   const [recordingUrl, setRecordingUrl] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const [agentId, setAgentId] = useState('');
   const [queue, setQueue] = useState('');
   const [direction, setDirection] = useState<'OUTBOUND' | 'INBOUND'>('OUTBOUND');
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
-    mutationFn: () =>
-      api.post<{ id: string }>('/interactions/manual', {
+    mutationFn: () => {
+      if (mode === 'upload') {
+        if (!file) throw new Error('Choose a file first');
+        const form = new FormData();
+        form.set('file', file);
+        if (agentId) form.set('agentId', agentId);
+        if (queue) form.set('queue', queue);
+        form.set('direction', direction);
+        return api.postForm<{ id: string }>('/interactions/manual/upload', form);
+      }
+      return api.post<{ id: string }>('/interactions/manual', {
         recordingUrl,
         agentId: agentId || undefined,
         queue: queue || undefined,
         direction,
-      }),
+      });
+    },
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ['interactions'] });
       toast('success', 'Call added — transcribing now');
@@ -256,6 +268,8 @@ function AddCallModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
     },
     onError: (e) => setError(e instanceof ApiError ? e.message : 'Failed to add call'),
   });
+
+  const canSubmit = mode === 'upload' ? !!file : !!recordingUrl;
 
   return (
     <Modal
@@ -267,15 +281,42 @@ function AddCallModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => create.mutate()} disabled={!recordingUrl || create.isPending}>
+          <Button onClick={() => create.mutate()} disabled={!canSubmit || create.isPending}>
             {create.isPending ? 'Adding…' : 'Add & transcribe'}
           </Button>
         </>
       }
     >
-      <Field label="Recording URL" hint="A direct, publicly playable audio link (mp3/wav). No login-gated links.">
-        <TextInput value={recordingUrl} onChange={setRecordingUrl} placeholder="https://example.com/recording.mp3" />
-      </Field>
+      <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-sm">
+        {(['upload', 'link'] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={
+              'rounded-md px-3 py-1.5 font-medium ' +
+              (mode === m ? 'bg-white text-brand-700 shadow-soft' : 'text-slate-500 hover:text-slate-700')
+            }
+          >
+            {m === 'upload' ? 'Upload a file' : 'Paste a link'}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'upload' ? (
+        <Field label="Recording file" hint="MP3/WAV, up to ~4MB (roughly a few minutes of MP3 audio).">
+          <input
+            type="file"
+            accept="audio/*"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="w-full rounded-xl border border-slate-300 bg-paper px-3.5 py-2.5 text-sm text-slate-700 shadow-soft file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-700"
+          />
+        </Field>
+      ) : (
+        <Field label="Recording URL" hint="A direct, publicly playable audio link (mp3/wav). No login-gated links.">
+          <TextInput value={recordingUrl} onChange={setRecordingUrl} placeholder="https://example.com/recording.mp3" />
+        </Field>
+      )}
       <Field label="Agent (optional)">
         <SelectInput value={agentId} onChange={setAgentId} options={[{ value: '', label: 'Unknown' }, ...agents.map((a) => ({ value: a.id, label: a.name }))]} />
       </Field>
