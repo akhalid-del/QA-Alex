@@ -17,8 +17,8 @@ export default {
           800: '#213f8a',
           900: '#1b3273',
         },
-        // Clean light body; the blue sidebar carries the design (option D).
-        canvas: '#f7f9fc',
+        // Light cool-gray body so white cards clearly float (option D).
+        canvas: '#eceff5',
         paper: '#ffffff',
       },
       borderRadius: {
