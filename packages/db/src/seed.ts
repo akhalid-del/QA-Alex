@@ -160,7 +160,8 @@ async function main() {
     const startedAt = daysAgo(Math.floor(Math.random() * 30));
     const sampled = Math.random() < 0.6; // ~60% sampled in the demo
     const direction = 'OUTBOUND'; // survey calls are outbound
-    const bias: 'good' | 'bad' = Math.random() < 0.7 ? 'good' : 'bad';
+    const bias: 'good' | 'bad' = Math.random() < 0.8 ? 'good' : 'bad';
+    const reviewed = sampled && Math.random() < 0.4; // ~40% already reviewed
 
     const interaction = await prisma.interaction.create({
       data: {
@@ -174,7 +175,7 @@ async function main() {
         startedAt,
         durationSec: 120 + Math.floor(Math.random() * 480),
         sampled,
-        status: sampled ? 'SCORED' : 'INGESTED',
+        status: sampled ? (reviewed ? 'REVIEWED' : 'SCORED') : 'INGESTED',
         recordingKey: `demo/rec-${1000 + i}.wav`,
       },
     });
@@ -200,11 +201,12 @@ async function main() {
     const results = scorecard.criteria.map((c) => {
       let verdict: CriterionVerdict;
       if (bias === 'good') {
-        verdict = Math.random() < 0.04 ? 'FAIL' : 'PASS'; // rare slip
+        // Good calls never commit a fatal mistake; only a rare minor slip.
+        verdict = c.autoFail ? 'PASS' : Math.random() < 0.01 ? 'FAIL' : 'PASS';
       } else if (c.autoFail) {
-        verdict = Math.random() < 0.4 ? 'FAIL' : 'PASS'; // some bad calls fatal
+        verdict = Math.random() < 0.1 ? 'FAIL' : 'PASS';
       } else {
-        verdict = Math.random() < 0.18 ? 'FAIL' : 'PASS';
+        verdict = Math.random() < 0.08 ? 'FAIL' : 'PASS';
       }
       return { criterion: c, verdict };
     });
@@ -229,6 +231,7 @@ async function main() {
         finalVerdict: verdict,
         finalScore: score,
         autoFailTriggered,
+        reviewed,
         model: 'demo',
         summary:
           verdict === 'PASS'
