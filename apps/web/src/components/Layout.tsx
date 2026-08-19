@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import type { ReactNode } from 'react';
+import { IconClipboardCheck, IconLayoutGrid, IconPhone, IconUser, IconUsersGroup } from '@tabler/icons-react';
 import type { Permission } from '@qa/shared/rbac';
 import { useAuth } from '../auth/AuthContext';
 
@@ -11,18 +12,12 @@ interface NavItem {
   permission?: Permission;
 }
 
-const icon = (path: ReactNode) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-    {path}
-  </svg>
-);
-
 const NAV: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: icon(<><rect x="3" y="3" width="7" height="9" /><rect x="14" y="3" width="7" height="5" /><rect x="14" y="12" width="7" height="9" /><rect x="3" y="16" width="7" height="5" /></>) },
-  { to: '/interactions', label: 'Calls', icon: icon(<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />) },
-  { to: '/scorecards', label: 'Scorecards', icon: icon(<><path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z" /><rect x="4" y="4" width="16" height="18" rx="2" /><path d="M9 12l2 2 4-4" /></>), permission: 'scorecard:read' },
-  { to: '/agents', label: 'Agents & Teams', icon: icon(<><circle cx="9" cy="7" r="3" /><path d="M2 21v-1a6 6 0 0 1 12 0v1" /><path d="M17 11a3 3 0 1 0-2-5.24" /><path d="M22 21v-1a5 5 0 0 0-4-4.9" /></>), permission: 'agent:read' },
-  { to: '/users', label: 'Users', icon: icon(<><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 12 0v1" /></>), permission: 'user:manage' },
+  { to: '/', label: 'Dashboard', icon: <IconLayoutGrid size={19} stroke={1.75} /> },
+  { to: '/interactions', label: 'Calls', icon: <IconPhone size={19} stroke={1.75} /> },
+  { to: '/scorecards', label: 'Scorecards', icon: <IconClipboardCheck size={19} stroke={1.75} />, permission: 'scorecard:read' },
+  { to: '/agents', label: 'Agents & Teams', icon: <IconUsersGroup size={19} stroke={1.75} />, permission: 'agent:read' },
+  { to: '/users', label: 'Users', icon: <IconUser size={19} stroke={1.75} />, permission: 'user:manage' },
 ];
 
 function initials(name?: string): string {

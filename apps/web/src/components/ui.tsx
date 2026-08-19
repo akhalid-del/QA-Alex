@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { useEffect, useState, type ReactNode } from 'react';
+import { IconAlertTriangle, IconInbox } from '@tabler/icons-react';
 
 export function Card({
   children,
@@ -167,14 +168,7 @@ export function EmptyState({
 }) {
   return (
     <div className="animate-fade-up px-6 py-14 text-center">
-      {iconCircle(
-        icon ?? (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-6 w-6 text-slate-400">
-            <path d="M3 7l2-3h14l2 3M3 7v11a2 2 0 002 2h14a2 2 0 002-2V7M3 7h18M9 12h6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ),
-        'bg-slate-100',
-      )}
+      {iconCircle(icon ?? <IconInbox size={24} stroke={1.6} className="text-slate-400" />, 'bg-slate-100')}
       <div className="text-sm font-semibold text-slate-700">{title}</div>
       {hint && <div className="mx-auto mt-1 max-w-sm text-xs text-slate-400">{hint}</div>}
       {action && <div className="mt-4 flex justify-center">{action}</div>}
@@ -185,12 +179,7 @@ export function EmptyState({
 export function ErrorState({ title = 'Something went wrong', hint, onRetry }: { title?: string; hint?: string; onRetry?: () => void }) {
   return (
     <div className="animate-fade-up px-6 py-14 text-center">
-      {iconCircle(
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-6 w-6 text-rose-500">
-          <path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>,
-        'bg-rose-50',
-      )}
+      {iconCircle(<IconAlertTriangle size={24} stroke={1.7} className="text-rose-500" />, 'bg-rose-50')}
       <div className="text-sm font-semibold text-slate-700">{title}</div>
       {hint && <div className="mx-auto mt-1 max-w-sm text-xs text-slate-400">{hint}</div>}
       {onRetry && (

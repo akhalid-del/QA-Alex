@@ -17,8 +17,8 @@ export default {
           800: '#213f8a',
           900: '#1b3273',
         },
-        // Light cool-gray body so white cards clearly float (option D).
-        canvas: '#eceff5',
+        // Soft steel-blue base; fine grain layered on top via .app-canvas.
+        canvas: '#e4eaf5',
         paper: '#ffffff',
       },
       borderRadius: {

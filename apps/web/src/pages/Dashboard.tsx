@@ -11,24 +11,29 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { ReactNode } from 'react';
+import {
+  IconAlertTriangle,
+  IconBan,
+  IconCircleCheck,
+  IconCircleMinus,
+  IconClock,
+  IconMessage,
+  IconPhone,
+  IconChecks,
+} from '@tabler/icons-react';
 import { api, qs } from '../api/client';
 import { Card, EmptyState, ErrorState, PageHeader, Skeleton, StatCard, healthColor, pct } from '../components/ui';
 
-const ic = (path: ReactNode) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-    {path}
-  </svg>
-);
+const IS = { size: 16, stroke: 1.9 };
 const ICON = {
-  rate: ic(<><path d="M20 6L9 17l-5-5" /></>),
-  calls: ic(<path d="M22 16.92v3a2 2 0 01-2.18 2 19.8 19.8 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.8 19.8 0 012.09 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0122 16.92z" />),
-  clock: ic(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
-  chat: ic(<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />),
-  alert: ic(<><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /><path d="M12 9v4M12 17h.01" /></>),
-  minus: ic(<><circle cx="12" cy="12" r="9" /><path d="M8 12h8" /></>),
-  check: ic(<><circle cx="12" cy="12" r="9" /><path d="M8.5 12.5l2.5 2.5 4.5-5" /></>),
-  ban: ic(<><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>),
+  rate: <IconCircleCheck {...IS} />,
+  calls: <IconPhone {...IS} />,
+  clock: <IconClock {...IS} />,
+  chat: <IconMessage {...IS} />,
+  alert: <IconAlertTriangle {...IS} />,
+  minus: <IconCircleMinus {...IS} />,
+  check: <IconChecks {...IS} />,
+  ban: <IconBan {...IS} />,
 };
 
 interface Summary {

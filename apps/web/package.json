@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@qa/shared": "*",
+    "@tabler/icons-react": "^3.26.0",
     "@tanstack/react-query": "^5.62.7",
     "clsx": "^2.1.1",
     "react": "^18.3.1",
