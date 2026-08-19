@@ -26,12 +26,12 @@ export function Card({
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
-    <div className="mb-7 flex items-end justify-between gap-4">
+    <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
       <div>
-        <h1 className="text-[1.75rem] font-bold leading-tight tracking-tight text-slate-900">{title}</h1>
+        <h1 className="text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-[1.75rem]">{title}</h1>
         {subtitle && <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -64,18 +64,25 @@ export function StatCard({
   tint?: 'brand' | 'emerald' | 'amber' | 'rose' | 'slate';
 }) {
   const tints: Record<string, string> = {
-    brand: 'bg-brand-50 text-brand-600',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    amber: 'bg-amber-50 text-amber-600',
-    rose: 'bg-rose-50 text-rose-600',
-    slate: 'bg-slate-100 text-slate-500',
+    brand: 'bg-gradient-to-br from-brand-100 to-brand-200 text-brand-700 ring-1 ring-inset ring-brand-300/80 shadow-[0_5px_14px_-3px_rgba(59,111,224,0.45)]',
+    emerald: 'bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-700 ring-1 ring-inset ring-emerald-300/80 shadow-[0_5px_14px_-3px_rgba(16,185,129,0.42)]',
+    amber: 'bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700 ring-1 ring-inset ring-amber-300/80 shadow-[0_5px_14px_-3px_rgba(217,119,6,0.42)]',
+    rose: 'bg-gradient-to-br from-rose-100 to-rose-200 text-rose-700 ring-1 ring-inset ring-rose-300/80 shadow-[0_5px_14px_-3px_rgba(225,29,72,0.42)]',
+    slate: 'bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 ring-1 ring-inset ring-slate-300/90 shadow-[0_5px_14px_-3px_rgba(100,116,139,0.32)]',
   };
   return (
-    <Card hover className="animate-fade-up p-5">
+    <Card hover className="group animate-fade-up p-5">
       <div className="flex items-start justify-between">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{label}</div>
         {icon && (
-          <span className={clsx('flex h-8 w-8 items-center justify-center rounded-xl', tints[tint])}>{icon}</span>
+          <span
+            className={clsx(
+              'flex h-9 w-9 items-center justify-center rounded-xl transition duration-200 group-hover:-translate-y-1 group-hover:scale-110 group-hover:brightness-105',
+              tints[tint],
+            )}
+          >
+            {icon}
+          </span>
         )}
       </div>
       <div className={clsx('mt-3 text-[2rem] font-bold leading-none tracking-tight tabular-nums', accent ?? 'text-slate-900')}>

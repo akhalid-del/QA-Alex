@@ -17,8 +17,8 @@ export default {
           800: '#213f8a',
           900: '#1b3273',
         },
-        // Soft steel-blue base; fine grain layered on top via .app-canvas.
-        canvas: '#e4eaf5',
+        // Clean flat white canvas; cards defined by thin borders + soft shadow.
+        canvas: '#ffffff',
         paper: '#ffffff',
       },
       borderRadius: {

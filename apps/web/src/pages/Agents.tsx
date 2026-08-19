@@ -79,15 +79,16 @@ export function Agents() {
         <Skeleton className="h-40 w-full" />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Username</th>
-                <th className="px-4 py-3">RingCX ID</th>
-                <th className="px-4 py-3">Team</th>
-                <th className="px-4 py-3">Calls</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="whitespace-nowrap px-4 py-3">Name</th>
+                <th className="whitespace-nowrap px-4 py-3">Username</th>
+                <th className="whitespace-nowrap px-4 py-3">RingCX ID</th>
+                <th className="whitespace-nowrap px-4 py-3">Team</th>
+                <th className="whitespace-nowrap px-4 py-3">Calls</th>
+                <th className="whitespace-nowrap px-4 py-3">Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -117,6 +118,7 @@ export function Agents() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
 

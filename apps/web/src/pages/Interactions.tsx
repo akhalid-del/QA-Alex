@@ -156,15 +156,16 @@ export function Interactions() {
             }
           />
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                <th className="px-4 py-3">Started</th>
-                <th className="px-4 py-3">Agent</th>
-                <th className="px-4 py-3">Queue</th>
-                <th className="px-4 py-3">Duration</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Result</th>
+                <th className="whitespace-nowrap px-4 py-3">Started</th>
+                <th className="whitespace-nowrap px-4 py-3">Agent</th>
+                <th className="whitespace-nowrap px-4 py-3">Queue</th>
+                <th className="whitespace-nowrap px-4 py-3">Duration</th>
+                <th className="whitespace-nowrap px-4 py-3">Status</th>
+                <th className="whitespace-nowrap px-4 py-3">Result</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -209,6 +210,7 @@ export function Interactions() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 

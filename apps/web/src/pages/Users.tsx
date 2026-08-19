@@ -62,13 +62,14 @@ export function Users() {
         <EmptyState title="No users yet." hint="Add your first user to get started." />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="whitespace-nowrap px-4 py-3">Name</th>
+                <th className="whitespace-nowrap px-4 py-3">Email</th>
+                <th className="whitespace-nowrap px-4 py-3">Role</th>
+                <th className="whitespace-nowrap px-4 py-3">Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -101,6 +102,7 @@ export function Users() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
 
