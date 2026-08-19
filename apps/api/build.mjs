@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import { mkdirSync, writeFileSync } from 'node:fs';
 
 // Bundle the API into a single self-contained CJS function for Vercel.
 // @prisma/client stays external so its native query engine loads from
@@ -18,4 +19,10 @@ await build({
   logLevel: 'info',
 });
 
-console.log('Bundled api/index.js');
+// Vercel requires a static output directory when a buildCommand is set. This
+// project is functions-only (all routes are rewritten to /api), so emit a
+// tiny placeholder just to satisfy that check — it is never actually served.
+mkdirSync('public', { recursive: true });
+writeFileSync('public/index.html', '<!doctype html><title>RingCX QA API</title>API is running. See /health.');
+
+console.log('Bundled api/index.js + placeholder public/');
