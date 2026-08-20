@@ -226,22 +226,22 @@ function AgentModal({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending || !name || !username || (!isEdit && !rcAgentId)}>
+          <Button onClick={() => save.mutate()} disabled={save.isPending || !name}>
             {save.isPending ? 'Saving…' : isEdit ? 'Save' : 'Create'}
           </Button>
         </>
       }
     >
-      {!isEdit && (
-        <Field label="RingCX agent ID" hint="The agent's identifier in RingCX">
-          <TextInput value={rcAgentId} onChange={setRcAgentId} placeholder="rc-3001" />
-        </Field>
-      )}
       <Field label="Full name">
         <TextInput value={name} onChange={setName} placeholder="Taylor Reed" />
       </Field>
-      <Field label="Username">
-        <TextInput value={username} onChange={setUsername} placeholder="t.reed" />
+      {!isEdit && (
+        <Field label="RingCX agent ID (optional)" hint="Leave blank during testing — we'll generate a placeholder you can replace once RingCX access is set up.">
+          <TextInput value={rcAgentId} onChange={setRcAgentId} placeholder="Leave blank for now" />
+        </Field>
+      )}
+      <Field label="Username (optional)" hint="Defaults to a slug of the name if left blank.">
+        <TextInput value={username} onChange={setUsername} placeholder="Auto from name" />
       </Field>
       <Field label="Team (optional)">
         <SelectInput value={teamId} onChange={setTeamId} options={[{ value: '', label: 'No team' }, ...teams.map((t) => ({ value: t.id, label: t.name }))]} />

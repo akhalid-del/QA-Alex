@@ -108,8 +108,10 @@ export type UpdateUserInput = z.infer<typeof UpdateUserInput>;
 
 /** Agents (manual management) */
 export const CreateAgentInput = z.object({
-  rcAgentId: z.string().min(1),
-  username: z.string().min(1),
+  // Optional during testing / before RingCX access: if blank, the API
+  // generates a placeholder RingCX id and derives a username from the name.
+  rcAgentId: z.string().optional(),
+  username: z.string().optional(),
   name: z.string().min(1),
   teamId: z.string().nullable().optional(),
   active: z.boolean().optional(),
