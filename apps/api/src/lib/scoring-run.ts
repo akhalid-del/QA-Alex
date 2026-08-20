@@ -72,11 +72,12 @@ export async function runScoringForInteraction(interactionId: string): Promise<{
           summary: result.summary,
         },
       });
-      for (const sc of result.criteria) {
-        const criterionId = codeToId.get(sc.code);
-        if (!criterionId) continue;
-        await tx.criterionResult.create({
-          data: {
+      // One bulk insert instead of ~61 sequential round-trips.
+      await tx.criterionResult.createMany({
+        data: result.criteria.flatMap((sc) => {
+          const criterionId = codeToId.get(sc.code);
+          if (!criterionId) return [];
+          return [{
             evaluationId: evaluation.id,
             criterionId,
             aiVerdict: sc.verdict,
@@ -84,9 +85,9 @@ export async function runScoringForInteraction(interactionId: string): Promise<{
             evidenceQuote: sc.evidenceQuote,
             evidenceTimestampMs: sc.evidenceTimestampMs,
             aiRationale: sc.rationale,
-          },
-        });
-      }
+          }];
+        }),
+      });
     });
 
     await prisma.interaction.update({ where: { id: interaction.id }, data: { status: 'SCORED', statusError: null } });

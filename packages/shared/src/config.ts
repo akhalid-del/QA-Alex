@@ -52,7 +52,10 @@ const EnvSchema = z.object({
   ASSEMBLYAI_API_KEY: z.string().optional(),
 
   ANTHROPIC_API_KEY: z.string().optional(),
-  ANTHROPIC_MODEL: z.string().default('claude-opus-4-8'),
+  // Sonnet is the default scoring model: much faster and ~5x cheaper than
+  // Opus, with more than enough quality for rubric grading (and it matches the
+  // cost estimates in the management plan). Override with ANTHROPIC_MODEL.
+  ANTHROPIC_MODEL: z.string().default('claude-sonnet-5'),
 });
 
 export type AppConfig = z.infer<typeof EnvSchema>;

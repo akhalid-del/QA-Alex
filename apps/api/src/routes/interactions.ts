@@ -253,13 +253,19 @@ interactionsRouter.post(
       if (!config.ASSEMBLYAI_API_KEY) {
         return res.json({ status: 'INGESTED', statusError: 'ASSEMBLYAI_API_KEY not configured' });
       }
+      // Atomically claim the call so concurrent /advance requests (client
+      // polling + "Process pending" + an open review tab) can't double-submit.
+      const claim = await prisma.interaction.updateMany({
+        where: { id: interaction.id, status: { in: ['INGESTED', 'FAILED'] } },
+        data: { status: 'TRANSCRIBING', statusError: null },
+      });
+      if (claim.count === 0) return res.json({ status: 'TRANSCRIBING' }); // another request already claimed it
       try {
         const aai = new AssemblyAIClient(config.ASSEMBLYAI_API_KEY);
         const providerRef = await aai.submitUrl(interaction.recordingKey, { redactPii: true });
         await prisma.transcript.create({
           data: { interactionId: interaction.id, provider: 'assemblyai', providerRef, fullText: '', utterances: [], redactionApplied: true },
         });
-        await prisma.interaction.update({ where: { id: interaction.id }, data: { status: 'TRANSCRIBING', statusError: null } });
         return res.json({ status: 'TRANSCRIBING' });
       } catch (err) {
         await prisma.interaction.update({ where: { id: interaction.id }, data: { status: 'FAILED', statusError: String(err) } });
@@ -307,6 +313,14 @@ interactionsRouter.post(
       if (!config.ANTHROPIC_API_KEY) {
         return res.json({ status: 'TRANSCRIBED', statusError: 'ANTHROPIC_API_KEY not configured' });
       }
+      // Atomically claim so only ONE request scores this call — otherwise
+      // concurrent /advance calls each create a duplicate Evaluation (and pay
+      // for a duplicate scoring request).
+      const claim = await prisma.interaction.updateMany({
+        where: { id: interaction.id, status: { in: ['TRANSCRIBED', 'FAILED'] } },
+        data: { status: 'SCORED', statusError: null },
+      });
+      if (claim.count === 0) return res.json({ status: 'SCORED' }); // another request already scored it
       try {
         const result = await runScoringForInteraction(interaction.id);
         return res.json({ status: 'SCORED', verdict: result.verdict });

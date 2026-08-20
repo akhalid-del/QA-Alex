@@ -38,7 +38,7 @@ export class ScoringClient {
 
   constructor(opts: ScoringClientOptions) {
     this.client = new Anthropic({ apiKey: opts.apiKey });
-    this.model = opts.model ?? 'claude-opus-4-8';
+    this.model = opts.model ?? 'claude-sonnet-5';
     this.maxTokens = opts.maxTokens ?? 8000;
   }
 
