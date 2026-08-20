@@ -13,6 +13,12 @@ export const ManualInteractionInput = z.object({
 });
 export type ManualInteractionInput = z.infer<typeof ManualInteractionInput>;
 
+/** Bulk-add many calls at once (from a list of recording links) */
+export const BulkManualInput = z.object({
+  recordings: z.array(ManualInteractionInput).min(1).max(200),
+});
+export type BulkManualInput = z.infer<typeof BulkManualInput>;
+
 /** Auth */
 export const LoginInput = z.object({
   email: z.string().email(),
@@ -105,6 +111,16 @@ export const UpdateUserInput = z.object({
   agentId: z.string().nullable().optional(),
 });
 export type UpdateUserInput = z.infer<typeof UpdateUserInput>;
+
+/** Bulk import of agents; teams are auto-created by name. */
+export const ImportAgentRow = z.object({
+  name: z.string().min(1),
+  team: z.string().max(120).optional(),
+  username: z.string().optional(),
+  rcAgentId: z.string().optional(),
+});
+export const ImportAgentsInput = z.object({ rows: z.array(ImportAgentRow).min(1).max(2000) });
+export type ImportAgentsInput = z.infer<typeof ImportAgentsInput>;
 
 /** Agents (manual management) */
 export const CreateAgentInput = z.object({

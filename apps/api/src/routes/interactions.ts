@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { CALL_DIRECTIONS, InteractionQuery, ManualInteractionInput } from '@qa/shared';
+import { BulkManualInput, CALL_DIRECTIONS, InteractionQuery, ManualInteractionInput } from '@qa/shared';
 import { prisma, type Prisma } from '@qa/db';
 import { AssemblyAIClient, mapSpeakers, utterancesToText } from '@qa/transcribe';
 import { asyncHandler, badRequest, notFound } from '../lib/http';
@@ -120,6 +120,24 @@ interactionsRouter.post(
     const interaction = await createManualInteraction({ ...input, recordingKey: input.recordingUrl });
     await audit({ actorId: req.user!.id, action: 'interaction.manual_create', entity: 'Interaction', entityId: interaction.id });
     res.status(201).json(interaction);
+  }),
+);
+
+// POST /interactions/manual/bulk — add many calls at once from a list of
+// recording links (each already uploaded to Storage or a public URL). Creates
+// INGESTED rows only; each is driven through transcribe→score via /advance.
+interactionsRouter.post(
+  '/manual/bulk',
+  requirePermission('interaction:create'),
+  asyncHandler(async (req, res) => {
+    const { recordings } = BulkManualInput.parse(req.body);
+    const ids: string[] = [];
+    for (const rec of recordings) {
+      const interaction = await createManualInteraction({ ...rec, recordingKey: rec.recordingUrl });
+      ids.push(interaction.id);
+    }
+    await audit({ actorId: req.user!.id, action: 'interaction.manual_bulk', entity: 'Interaction', metadata: { count: ids.length } });
+    res.status(201).json({ created: ids.length, ids });
   }),
 );
 

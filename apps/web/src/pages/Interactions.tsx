@@ -42,8 +42,37 @@ export function Interactions() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [adding, setAdding] = useState(false);
+  const [bulkAdding, setBulkAdding] = useState(false);
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [processMsg, setProcessMsg] = useState<string | null>(null);
 
   const status = view === 'needsReview' ? 'SCORED' : '';
+
+  // Drive every pending manually-added call through transcribe→score in one
+  // go (the bulk importer creates them as INGESTED). Advances each call one
+  // step per pass; FAILED calls drop out so the loop always terminates.
+  async function processPending() {
+    const IN_PROGRESS = ['INGESTED', 'TRANSCRIBING', 'TRANSCRIBED'];
+    setProcessMsg('Starting…');
+    try {
+      for (let pass = 0; pass < 80; pass++) {
+        const list = await api.get<ListResponse>('/interactions' + qs({ page: 1, pageSize: 100, status: '' }));
+        const pending = list.items.filter((r) => r.manual && IN_PROGRESS.includes(r.status));
+        if (!pending.length) break;
+        setProcessMsg(`Processing ${pending.length} call${pending.length > 1 ? 's' : ''}…`);
+        await Promise.all(pending.map((r) => api.post(`/interactions/${r.id}/advance`).catch(() => {})));
+        qc.invalidateQueries({ queryKey: ['interactions'] });
+        await new Promise((res) => setTimeout(res, 3500));
+      }
+      toast('success', 'Processing complete');
+    } catch {
+      toast('error', 'Processing stopped — some calls may still be pending');
+    } finally {
+      setProcessMsg(null);
+      qc.invalidateQueries({ queryKey: ['interactions'] });
+    }
+  }
 
   const agents = useQuery({ queryKey: ['agents'], queryFn: () => api.get<Agent[]>('/agents') });
 
@@ -70,7 +99,19 @@ export function Interactions() {
       <PageHeader
         title="Calls"
         subtitle="Interactions ingested from RingCX"
-        actions={can('interaction:create') ? <Button onClick={() => setAdding(true)}>+ Add call</Button> : undefined}
+        actions={
+          can('interaction:create') ? (
+            <>
+              <Button variant="outline" onClick={() => processPending()} disabled={!!processMsg}>
+                {processMsg ?? 'Process pending'}
+              </Button>
+              <Button variant="outline" onClick={() => setBulkAdding(true)}>
+                ⬆ Bulk add
+              </Button>
+              <Button onClick={() => setAdding(true)}>+ Add call</Button>
+            </>
+          ) : undefined
+        }
       />
 
       {/* View toggle */}
@@ -230,7 +271,103 @@ export function Interactions() {
       </div>
 
       {adding && <AddCallModal agents={agents.data ?? []} onClose={() => setAdding(false)} />}
+      {bulkAdding && (
+        <BulkAddModal
+          agents={agents.data ?? []}
+          onClose={() => setBulkAdding(false)}
+          onDone={() => {
+            setBulkAdding(false);
+            qc.invalidateQueries({ queryKey: ['interactions'] });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function BulkAddModal({ agents, onClose, onDone }: { agents: Agent[]; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const [files, setFiles] = useState<File[]>([]);
+  const [links, setLinks] = useState('');
+  const [agentId, setAgentId] = useState('');
+  const [direction, setDirection] = useState<'OUTBOUND' | 'INBOUND'>('OUTBOUND');
+  const [progress, setProgress] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const linkList = links.split('\n').map((l) => l.trim()).filter((l) => /^https?:\/\//i.test(l));
+  const total = files.length + linkList.length;
+
+  const run = useMutation({
+    mutationFn: async () => {
+      setError(null);
+      const urls: string[] = [...linkList];
+      // Upload each file straight to Storage (no size limit), collecting URLs.
+      for (let i = 0; i < files.length; i++) {
+        setProgress(`Uploading file ${i + 1} of ${files.length}…`);
+        urls.push(await uploadRecording(files[i]!));
+      }
+      if (!urls.length) throw new Error('Add at least one file or link.');
+      setProgress(`Creating ${urls.length} calls…`);
+      const recordings = urls.map((url) => ({ recordingUrl: url, agentId: agentId || undefined, direction }));
+      return api.post<{ created: number }>('/interactions/manual/bulk', { recordings });
+    },
+    onSuccess: (r) => {
+      toast('success', `Added ${r.created} calls — click "Process pending" to transcribe & score them`);
+      onDone();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Bulk add failed'),
+    onSettled: () => setProgress(null),
+  });
+
+  return (
+    <Modal
+      open
+      title="Bulk add calls"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => run.mutate()} disabled={!total || run.isPending}>
+            {progress ?? (total ? `Add ${total} calls` : 'Add calls')}
+          </Button>
+        </>
+      }
+    >
+      <p className="mb-4 text-sm text-slate-600">
+        Add many calls at once. Select multiple recording files and/or paste public links (one per line).
+        They're created as pending, then <b className="text-slate-800">Process pending</b> transcribes and scores them all.
+      </p>
+      <Field label="Recording files" hint="Select multiple MP3/WAV/M4A files. Uploaded directly and securely, no size limit.">
+        <input
+          type="file"
+          accept="audio/*"
+          multiple
+          onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+          className="w-full rounded-xl border border-slate-300 bg-paper px-3.5 py-2.5 text-sm text-slate-700 shadow-soft file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-700"
+        />
+      </Field>
+      {files.length > 0 && <div className="mb-4 -mt-2 text-xs text-slate-500">{files.length} file(s) selected</div>}
+      <Field label="Or paste links (one per line)" hint="Direct, publicly playable audio links (mp3/wav).">
+        <textarea
+          value={links}
+          onChange={(e) => setLinks(e.target.value)}
+          rows={4}
+          placeholder={'https://example.com/call-1.mp3\nhttps://example.com/call-2.mp3'}
+          className="w-full rounded-xl border border-slate-300 bg-paper px-3.5 py-2.5 text-sm text-slate-700 shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+        />
+      </Field>
+      <Field label="Assign all to agent (optional)">
+        <SelectInput value={agentId} onChange={setAgentId} options={[{ value: '', label: 'Unknown' }, ...agents.map((a) => ({ value: a.id, label: a.name }))]} />
+      </Field>
+      <Field label="Direction (applies to all)">
+        <SelectInput
+          value={direction}
+          onChange={(v) => setDirection(v as 'OUTBOUND' | 'INBOUND')}
+          options={[{ value: 'OUTBOUND', label: 'Outbound' }, { value: 'INBOUND', label: 'Inbound' }]}
+        />
+      </Field>
+      {error && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
+    </Modal>
   );
 }
 

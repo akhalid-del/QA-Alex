@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { CreateAgentInput, CreateTeamInput, UpdateAgentInput, UpdateTeamInput } from '@qa/shared';
+import { CreateAgentInput, CreateTeamInput, ImportAgentsInput, UpdateAgentInput, UpdateTeamInput } from '@qa/shared';
 import { prisma } from '@qa/db';
 import { asyncHandler, badRequest, notFound } from '../lib/http';
 import { authenticate, requirePermission } from '../middleware/auth';
@@ -7,6 +7,17 @@ import { audit } from '../lib/audit';
 
 export const agentsRouter = Router();
 agentsRouter.use(authenticate);
+
+// Derive a RingCX id + username from the name when they aren't provided yet
+// (testing phase, before RingCX access). Kept in one place so single-create
+// and bulk-import behave identically.
+function agentDefaults(name: string, rcAgentId?: string, username?: string) {
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || 'agent';
+  return {
+    rcAgentId: rcAgentId?.trim() || `demo-${slug}-${Math.random().toString(36).slice(2, 7)}`,
+    username: username?.trim() || slug,
+  };
+}
 
 // GET /agents — roster with team + call counts.
 agentsRouter.get(
@@ -46,11 +57,9 @@ agentsRouter.post(
   requirePermission('agent:write'),
   asyncHandler(async (req, res) => {
     const input = CreateAgentInput.parse(req.body);
-    // During testing there's no real RingCX id yet: derive a slug from the
-    // name and generate placeholders so agents can be added by name alone.
-    const slug = input.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || 'agent';
-    const rcAgentId = input.rcAgentId?.trim() || `demo-${slug}-${Math.random().toString(36).slice(2, 7)}`;
-    const username = input.username?.trim() || slug;
+    // During testing there's no real RingCX id yet: derive placeholders so
+    // agents can be added by name alone.
+    const { rcAgentId, username } = agentDefaults(input.name, input.rcAgentId, input.username);
     const exists = await prisma.agent.findUnique({ where: { rcAgentId } });
     if (exists) throw badRequest('An agent with that RingCX ID already exists');
     const agent = await prisma.agent.create({
@@ -64,6 +73,50 @@ agentsRouter.post(
     });
     await audit({ actorId: req.user!.id, action: 'agent.create', entity: 'Agent', entityId: agent.id });
     res.status(201).json(agent);
+  }),
+);
+
+// POST /agents/import — bulk-create agents from a parsed CSV. Teams named in
+// the rows are auto-created (deduped by name). Missing RingCX ids/usernames
+// are generated. Returns per-row errors without failing the whole batch.
+agentsRouter.post(
+  '/import',
+  requirePermission('agent:write'),
+  asyncHandler(async (req, res) => {
+    const { rows } = ImportAgentsInput.parse(req.body);
+
+    // Upsert every referenced team once, by name.
+    const teamNames = [...new Set(rows.map((r) => r.team?.trim()).filter((n): n is string => !!n))];
+    const teamByName = new Map<string, string>();
+    let teamsCreated = 0;
+    for (const name of teamNames) {
+      const existing = await prisma.team.findFirst({ where: { name } });
+      if (existing) {
+        teamByName.set(name, existing.id);
+      } else {
+        const team = await prisma.team.create({ data: { name } });
+        teamByName.set(name, team.id);
+        teamsCreated++;
+      }
+    }
+
+    let agentsCreated = 0;
+    const errors: { row: number; name: string; error: string }[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]!;
+      try {
+        const { rcAgentId, username } = agentDefaults(r.name, r.rcAgentId, r.username);
+        const teamId = r.team?.trim() ? (teamByName.get(r.team.trim()) ?? null) : null;
+        await prisma.agent.create({ data: { rcAgentId, username, name: r.name.trim(), teamId, active: true } });
+        agentsCreated++;
+      } catch (e) {
+        const msg = e instanceof Error && /unique/i.test(e.message) ? 'duplicate RingCX ID' : 'could not create';
+        errors.push({ row: i + 1, name: r.name, error: msg });
+      }
+    }
+
+    await audit({ actorId: req.user!.id, action: 'agent.import', entity: 'Agent', metadata: { agentsCreated, teamsCreated } });
+    res.status(201).json({ agentsCreated, teamsCreated, teamsTouched: teamNames.length, errors });
   }),
 );
 

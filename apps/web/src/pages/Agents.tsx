@@ -32,6 +32,7 @@ export function Agents() {
 
   const [teamModal, setTeamModal] = useState<{ team?: Team } | null>(null);
   const [agentModal, setAgentModal] = useState<{ agent?: Agent } | null>(null);
+  const [importing, setImporting] = useState(false);
 
   return (
     <div>
@@ -70,9 +71,14 @@ export function Agents() {
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-600">Agents</h2>
         {writable && (
-          <Button variant="outline" onClick={() => setAgentModal({})}>
-            + Add agent
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => setImporting(true)}>
+              ⬆ Import CSV
+            </Button>
+            <Button variant="outline" onClick={() => setAgentModal({})}>
+              + Add agent
+            </Button>
+          </div>
         )}
       </div>
       {agents.isLoading ? (
@@ -143,7 +149,147 @@ export function Agents() {
           }}
         />
       )}
+      {importing && (
+        <ImportAgentsModal
+          onClose={() => setImporting(false)}
+          onDone={() => {
+            setImporting(false);
+            agents.refetch();
+            teams.refetch();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** Minimal CSV parser: handles quoted fields, commas, and CRLF. */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let field = '';
+  let row: string[] = [];
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.some((f) => f.trim() !== '')) rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); if (row.some((f) => f.trim() !== '')) rows.push(row); }
+  return rows;
+}
+
+interface ImportRow { name: string; team?: string; username?: string; rcAgentId?: string }
+
+function ImportAgentsModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const [rows, setRows] = useState<ImportRow[]>([]);
+  const [fileName, setFileName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  function handleFile(file: File | null) {
+    setError(null);
+    if (!file) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const grid = parseCsv(String(reader.result ?? ''));
+        if (!grid.length) throw new Error('The file looks empty.');
+        // Detect a header row and map columns by name; otherwise assume
+        // column order: name, team, username, rcAgentId.
+        const header = grid[0]!.map((h) => h.trim().toLowerCase());
+        const hasHeader = header.includes('name');
+        const idx = (k: string, fallback: number) => (hasHeader ? header.indexOf(k) : fallback);
+        const iName = idx('name', 0);
+        const iTeam = idx('team', 1);
+        const iUser = idx('username', 2);
+        const iRc = header.indexOf('rcagentid') >= 0 ? header.indexOf('rcagentid') : header.indexOf('ringcx id');
+        const body = hasHeader ? grid.slice(1) : grid;
+        const parsed: ImportRow[] = body
+          .map((cols) => ({
+            name: (cols[iName] ?? '').trim(),
+            team: (cols[iTeam] ?? '').trim() || undefined,
+            username: (cols[iUser] ?? '').trim() || undefined,
+            rcAgentId: (iRc >= 0 ? (cols[iRc] ?? '').trim() : '') || undefined,
+          }))
+          .filter((r) => r.name);
+        if (!parsed.length) throw new Error('No rows with a name were found.');
+        setRows(parsed);
+      } catch (e) {
+        setRows([]);
+        setError(e instanceof Error ? e.message : 'Could not read the file.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  const submit = useMutation({
+    mutationFn: () => api.post<{ agentsCreated: number; teamsCreated: number; errors: { name: string; error: string }[] }>('/agents/import', { rows }),
+    onSuccess: (r) => {
+      const extra = r.errors.length ? `, ${r.errors.length} skipped` : '';
+      toast('success', `Imported ${r.agentsCreated} agents · ${r.teamsCreated} new teams${extra}`);
+      onDone();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : 'Import failed'),
+  });
+
+  const teamCount = new Set(rows.map((r) => r.team).filter(Boolean)).size;
+
+  return (
+    <Modal
+      open
+      title="Import agents from CSV"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => submit.mutate()} disabled={!rows.length || submit.isPending}>
+            {submit.isPending ? 'Importing…' : rows.length ? `Import ${rows.length} agents` : 'Import'}
+          </Button>
+        </>
+      }
+    >
+      <p className="mb-3 text-sm text-slate-600">
+        Upload a CSV with a header row. Columns: <b className="text-slate-800">name</b> (required),{' '}
+        <b className="text-slate-800">team</b>, <b className="text-slate-800">username</b>,{' '}
+        <b className="text-slate-800">rcAgentId</b> (all optional). Teams are created automatically; blank IDs are generated.
+      </p>
+      <div className="mb-3 rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs text-slate-500">
+        name,team,username,rcAgentId<br />
+        Taylor Reed,Team Alpha,,<br />
+        Sam Cole,Team Alpha,,<br />
+        Jordan Lee,Team Bravo,,
+      </div>
+      <input
+        type="file"
+        accept=".csv,text/csv"
+        onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+        className="w-full rounded-xl border border-slate-300 bg-paper px-3.5 py-2.5 text-sm text-slate-700 shadow-soft file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-700"
+      />
+      {rows.length > 0 && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">
+          Ready to import <b className="text-slate-800">{rows.length}</b> agents across{' '}
+          <b className="text-slate-800">{teamCount || 'no'}</b> team(s) from <span className="text-slate-500">{fileName}</span>.
+          <div className="mt-2 max-h-32 overflow-y-auto text-xs text-slate-400">
+            {rows.slice(0, 8).map((r, i) => (
+              <div key={i}>{r.name}{r.team ? ` · ${r.team}` : ''}</div>
+            ))}
+            {rows.length > 8 && <div>…and {rows.length - 8} more</div>}
+          </div>
+        </div>
+      )}
+      {error && <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
+    </Modal>
   );
 }
 
